@@ -1,0 +1,560 @@
+<html>
+
+<head>
+
+  <title>SuDokuManual</title>
+  <canvas id="myCanvas1" width="456" height="456" style="position: absolute"></canvas>
+  <canvas id="myCanvas2" width="47" height="452" style="position: absolute"></canvas>
+  <canvas id="myCanvas3" width="10" height="10" style="position: absolute; left: 0; top: 0"></canvas>
+
+</head>
+
+<body onload="restoredata()">
+
+<script>
+
+  var xleft = 210;
+  var xleft2 = xleft+480;
+  var ytop = 10;
+  var canvas1 = document.getElementById('myCanvas1');
+  canvas1.style.left = xleft;
+  canvas1.style.top = ytop;
+  var context1 = canvas1.getContext('2d');
+  myCanvas1.addEventListener('click', getmouse, false);
+  var canvas2 = document.getElementById('myCanvas2');
+  canvas2.style.left = xleft2;
+  canvas2.style.top = ytop;
+  var context2 = canvas2.getContext('2d');
+  myCanvas2.addEventListener('click',picknum,false);
+  var rhxleft = xleft-2;
+  var rhytop = ytop+7;
+  myCanvas3.addEventListener('click',dispfull,false);
+  window.addEventListener('beforeunload',savedata);
+
+// Global variables
+//Cells are numbered 0 to 80
+// contents of the cells, 1-9, zero means empty 
+var cconts = new Array();
+//Cell can or can't change while playing a puzzle
+var ccanch = new Array();
+//Cell has or hasn't been picked & a number assigned to it for now
+var cpickd = new Array();
+// count of possible values in each cell
+var cpcnts = new Array();
+// indicators of which values are possible in each cell
+var cpvals = new Array();
+
+//x,y coords from mouse
+var mousex = 0;
+var mousey = 0;
+//Cell selected by mouse
+var mouseix = 0;
+//Ready or not for a number to be picked
+var pready = false;
+//number that was picked, 10 means erase
+var pinp = 0;
+var dspmrks = false;
+var numfilled = 0;
+var dispall = false;
+var setupmode = true;
+
+// for indexing purposes, cells are numbered 0-80
+//Saved puzzle
+var sconts = new Array();
+// which row each cell is in
+var crows = new Array();
+// which column each cell is in
+var ccols = new Array();
+// which box each cell is in
+var cboxs = new Array();
+var droffs = 40;
+var dcoffs = 16;
+
+// initialize data that doesn't change
+var s1 = 0;
+for (var m=0; m<9; m++) {
+  for (var n=0; n<9; n++) {
+    crows[s1] = m;
+    s1++;
+  }
+}
+var s1 = 0;
+for (var m=0; m<9; m++) {
+  for (var n=0; n<9; n++) {
+    ccols[s1] = n;
+    s1++;
+  }
+}
+cboxs[ 0]=0;cboxs[ 1]=0;cboxs[ 2]=0;cboxs[ 3]=1;cboxs[ 4]=1;cboxs[ 5]=1;cboxs[ 6]=2;cboxs[ 7]=2;cboxs[ 8]=2;
+cboxs[ 9]=0;cboxs[10]=0;cboxs[11]=0;cboxs[12]=1;cboxs[13]=1;cboxs[14]=1;cboxs[15]=2;cboxs[16]=2;cboxs[17]=2;
+cboxs[18]=0;cboxs[19]=0;cboxs[20]=0;cboxs[21]=1;cboxs[22]=1;cboxs[23]=1;cboxs[24]=2;cboxs[25]=2;cboxs[26]=2;
+cboxs[27]=3;cboxs[28]=3;cboxs[29]=3;cboxs[30]=4;cboxs[31]=4;cboxs[32]=4;cboxs[33]=5;cboxs[34]=5;cboxs[35]=5;
+cboxs[36]=3;cboxs[37]=3;cboxs[38]=3;cboxs[39]=4;cboxs[40]=4;cboxs[41]=4;cboxs[42]=5;cboxs[43]=5;cboxs[44]=5;
+cboxs[45]=3;cboxs[46]=3;cboxs[47]=3;cboxs[48]=4;cboxs[49]=4;cboxs[50]=4;cboxs[51]=5;cboxs[52]=5;cboxs[53]=5;
+cboxs[54]=6;cboxs[55]=6;cboxs[56]=6;cboxs[57]=7;cboxs[58]=7;cboxs[59]=7;cboxs[60]=8;cboxs[61]=8;cboxs[62]=8;
+cboxs[63]=6;cboxs[64]=6;cboxs[65]=6;cboxs[66]=7;cboxs[67]=7;cboxs[68]=7;cboxs[69]=8;cboxs[70]=8;cboxs[71]=8;
+cboxs[72]=6;cboxs[73]=6;cboxs[74]=6;cboxs[75]=7;cboxs[76]=7;cboxs[77]=7;cboxs[78]=8;cboxs[79]=8;cboxs[80]=8;
+
+var nums = new Array();
+nums[0]="0";nums[1]="1";nums[2]="2";nums[3]="3";nums[4]="4";
+nums[5]="5";nums[6]="6";nums[7]="7";nums[8]="8";nums[9]="9";
+
+
+// Begin functions
+
+function savedata() {
+  //Our window is closing
+  //Save the puzzle data as JSON objects so it can be resumed
+  localStorage.setItem("MsavedCconts", JSON.stringify(cconts));
+  localStorage.setItem("MsavedCcanch", JSON.stringify(ccanch));
+  localStorage.setItem("MsavedCpickd", JSON.stringify(cpickd));
+  localStorage.setItem("MsavedSconts", JSON.stringify(sconts));
+  localStorage.setItem("MsavedMode", JSON.stringify(setupmode));
+}
+
+function restoredata() {
+  //Get the puzzle data from the previous session
+  if (!localStorage.getItem('MsavedCconts')) {
+    //No data exists - go start a new puzzle
+    makepuzzle();
+    return;
+  }
+  //Get the JSON objects and put the data back in the puzzle arrays 
+  var retrievedData = localStorage.getItem("MsavedCconts");
+  cconts = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("MsavedCcanch");
+  ccanch = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("MsavedCpickd");
+  cpickd = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("MsavedSconts");
+  sconts = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("MsavedMode");
+  setupmode = JSON.parse(retrievedData);
+  document.getElementById('noptmode').value = "set";
+  if (!setupmode) document.getElementById('noptmode').value = "play";
+  //Erase the JSON objects
+  localStorage.removeItem('MsavedCconts');
+  localStorage.removeItem('MsavedCcanch');
+  localStorage.removeItem('MsavedCpickd');
+  localStorage.removeItem('MsavedSconts');
+  localStorage.removeItem('MsavedMode');
+  //Display the puzzle and resume play
+  dispuzz();
+}
+
+//Set up the playing field and housekeep variables for a new puzzle
+function housekeep() {
+  //Display the field
+  dispfield() ;
+  numfilled = 0;
+  dspmrks = false;
+  dispall = false;
+  clickwait = false;
+  pinp = "";
+  for (var x=0; x<81; x++) {
+    cconts[x] = 0;
+    cpcnts[x] = 9;
+    ccanch[x] = false;
+    cpickd[x] = false;
+  }
+  for (var y=0; y<811; y++) cpvals[y] = true;
+  message2(" ");
+}
+
+function dispfield() {
+  //Display the empty playing field
+  dispgrid();
+  //Set up the number pick list
+  context2.fillStyle = 'white';
+  context2.fillRect(0, 0, canvas2.width, canvas2.height);
+  context2.fillStyle = 'black';
+  context2.fillRect(0, 0, 2, canvas2.height);
+  context2.fillRect(45, 0, 2, canvas2.height);
+  var dinc = 0;
+  for (var x=0; x<11; x++) {
+    context2.fillRect(0, dinc, canvas2.width, 2);
+    dinc = dinc + 45;
+  }
+  dinc = 0
+  context2.fillStyle = 'black';
+  context2.font = "600 36px Arial";
+  for (var x=1; x<10; x++) {
+    context2.fillText(x, dcoffs-3, dinc+droffs-3);
+    dinc = dinc + 45;
+  }
+  context2.fillStyle = 'black';
+  context2.font = "800 12px Arial";
+  context2.fillText("Hide/", 4, dinc+22);
+  context2.fillText("Erase", 4, dinc+34);
+
+}
+
+function dispgrid() {
+  //Display the empty grid
+  //Clear the canvas
+  context1.fillStyle = 'white';
+  context1.fillRect(0, 0, canvas1.width, canvas1.height);
+  //Hide the highlight rectangle
+  var rhls = document.getElementById("rhl");
+  rhls.style.left = rhxleft;
+  rhls.style.top = rhytop;
+  rhls.style.visibility = "hidden";
+  var mess3 = document.getElementById('msg3');
+  mess3.style.visibility = "hidden";
+  //Draw the grid
+  context1.fillStyle = 'black';
+  var dinc = 50;
+  //Display the grid
+  for (var x=0; x<8; x++) {
+    context1.fillRect(dinc, 0, 2, canvas1.height);
+    context1.fillRect(0, dinc, canvas1.width, 2);
+    dinc = dinc + 50;
+  }
+  dinc = 0;
+  for (var x=0; x<4; x++) {
+    context1.fillRect(dinc, 0, 6, canvas1.height);
+    context1.fillRect(0, dinc, canvas1.width, 6);
+    dinc = dinc + 150;
+  }
+}
+
+function makepuzzle() {
+  //Generate an empty grid
+  housekeep();
+  //Display it, ready for user input
+  dispuzz();
+}
+
+//Display the puzzle with the cells that are presently filled
+function dispuzz() {
+  //Display the empty field
+  dispfield();
+  numfilled = 0;
+  var drow = 0;
+  var dcol = 0;
+  for (var a=0; a<81; a++) {
+    if ((!ccanch[a]) && (cconts[a] != 0)) {
+      numfilled++;
+      //Display the cells in the original puzzle
+      context1.fillStyle = 'black';
+      context1.font = "600 36px Arial";
+      context1.fillText(cconts[a], dcol+dcoffs, drow+droffs);
+    }
+    if ((ccanch[a]) && (setupmode) && (cconts[a] != 0)) {
+      // In setup mode, display cells that will be hidden in play mode
+      numfilled++;
+      context1.fillStyle = '#4080ff';
+      context1.font = "600 36px Arial";
+      context1.fillText(cconts[a], dcol+dcoffs, drow+droffs);
+    }
+    if (cpickd[a]) {
+      //Display cells that have been picked and filled in play mode
+      numfilled++;
+      context1.fillStyle = '#4080ff';
+      context1.font = "600 36px Arial";
+      context1.fillText(cconts[a], dcol+dcoffs, drow+droffs);
+    }
+    dcol = dcol + 50;
+    if (dcol > 400) {
+      dcol = 0;
+      drow = drow + 50;
+    }
+  }
+  dispall = false;
+  var mess = "Filled cells "+numfilled;
+  message1(mess);
+  if (numfilled < 81) message2("Pick a cell");
+  if ((numfilled == 81) && (!setupmode)) message2("Congratulations!");
+}
+
+//Restart current puzzle
+function restart() {
+  for (var y=0; y<81; y++) {
+    cconts[y] = sconts[y];    
+    cpickd[y] = false;
+  }
+  message2(" ");
+  var mess3 = document.getElementById('msg3');
+  mess3.style.visibility = "hidden";
+  //Display the puzzle
+  dispuzz();
+}
+
+function optmode() {
+//Set mode of operation
+  var nnoptmode = document.getElementById('noptmode');
+  setupmode = true;
+  if (noptmode.selectedIndex != 0) {
+    for (var m=0; m<81; m++) {
+      if (cconts[m] == 0) {
+        message2("Fill all cells");
+        document.getElementById('noptmode').value = "set";
+        return;
+      }
+    }
+    setupmode = false;
+  }
+  dispuzz();
+}
+
+//Display or clear marks/possibilities
+function optdmrk() {
+  var drow = 0;
+  var dcol = 0;
+  var mess3 = document.getElementById('msg3');
+  mess3.style.visibility = "hidden";
+  var nnoptdmk = document.getElementById('noptdmk');
+  // if clear
+  if (nnoptdmk.selectedIndex == 1) {
+    dispuzz();
+    return;
+  }
+  dspmrks = true;
+  // for each undisplayed cell, see which numbers look possible
+  for (var x=0; x<81; x++) {
+    if ((ccanch[x]) && (!cpickd[x])) {
+      var strng1 = "";
+      var strng2 = "";
+      var stl = 0;
+      var poss = new Array();
+      for (var y=0; y<10; y++) poss[y] = true;
+      for (var z=0; z<81; z++) {
+        // for each filled cell
+        if ((!ccanch[z]) || (cpickd[z])){
+          // check if in the same row/col/box as the cell we're working on
+          if (crows[z] == crows[x]) poss[cconts[z]] = false;
+          if (ccols[z] == ccols[x]) poss[cconts[z]] = false;
+          if (cboxs[z] == cboxs[x]) poss[cconts[z]] = false;
+        }
+      }
+      // build strings of the possible numbers
+      for (var m=1; m<10; m++) {
+        if (poss[m]) {
+          if (stl <  4) strng1 = eval(strng1 + nums[m]);
+          if (stl >= 4) strng2 = eval(strng2 + nums[m]);
+          stl++; 
+        }
+      }
+      context1.fillStyle = 'black';
+      if (stl == 0) {
+        //Error - no possibilities
+        strng1 = "####";
+        strng2 - "";
+        context1.fillStyle = 'red';
+        var mess3 = document.getElementById('msg3');
+        mess3.style.visibility = "visible";
+      }
+      // display it
+        context1.font = "600 12px Arial";
+        context1.fillText(strng1, dcol+dcoffs-4, drow+droffs-12);
+        context1.fillText(strng2, dcol+dcoffs-4, drow+droffs-2);
+    }
+    dcol = dcol + 50;
+    if (dcol > 400) {
+      dcol = 0;
+      drow = drow + 50;
+    }
+  }
+}
+
+//Mouse clicked in main canvas
+function getmouse(ev) {
+  //Get coords
+  mousex = ev.clientX;
+  mousey = ev.clientY;
+  //Handle it
+  mouseact();
+}
+
+//Handle mouse selection
+function mouseact() {
+  clickwait = false;
+  mousex = mousex - xleft;
+  if (mousex > 449) return;
+  if (mousex < 0) return;
+  mousey = mousey - ytop;
+  if (mousey > 449) return;
+  if (mousey < 0) return;
+  var mrow = Math.floor(mousey/50);
+  var mcol = Math.floor(mousex/50);
+  var mcell = 9*mrow + mcol;
+  var rhlm = document.getElementById("rhl");
+  if (setupmode) {
+    rhlm.style.left = 50*mcol + xleft + 1;
+    rhlm.style.top = 50*mrow + ytop + 1;
+    rhlm.style.visibility = "visible";
+    message2("Pick Number&#47;Hide");
+    mouseix = mcell;
+    pready = true;
+    return;  
+  }
+  if (!ccanch[mcell]) {
+    rhlm.style.visibility = "hidden";
+    pready = false;
+    message2("Pick a cell ");
+    return;
+  }
+  rhlm.style.left = 50*mcol + xleft + 1;
+  rhlm.style.top = 50*mrow + ytop + 1;
+  rhlm.style.visibility = "visible";
+  message2("Pick Number&#47;Erase");
+  mouseix = mcell;
+  pready = true;
+}
+
+//Handle mouse click on number selection column
+function picknum(ev) {
+//  if (numfilled == 81) return;
+  if (!pready) return;
+  var tpinp = ev.clientY - ytop;
+  pinp = Math.floor(tpinp/45) + 1;
+  if (setupmode) {
+    message2(" ");
+    pready = false;
+    var rhlm = document.getElementById("rhl");
+    rhlm.style.visibility = "hidden";
+    if (pinp < 10) {
+      sconts[mouseix] = pinp;
+      cconts[mouseix] = pinp;
+      ccanch[mouseix] = false;
+      dispuzz();
+      pready = true;
+      return;
+    }
+    if (cconts[mouseix] != 0) ccanch[mouseix] = true;
+    dispuzz();
+    pready = true;
+    return;
+  }
+  if (pinp < 10) {
+    //Check if selected number is possible here
+    if (!chkposs(pinp)) {
+      message2("Can&apos;t play "+pinp+" here");
+      pready = true;
+      return;
+    } 
+  }
+  message2(" ");
+  pready = false;
+  var rhlm = document.getElementById("rhl");
+  rhlm.style.visibility = "hidden";
+  //Set up the newly filled cell
+  cconts[mouseix] = pinp;
+  cpickd[mouseix] = true;
+  if (pinp > 9) {
+    //Number greater than 9 means erase the cell
+    cpickd[mouseix] = false;
+    cconts[mouseix] = sconts[mouseix];
+  }
+  //Redisplay the puzzle with its changes
+  dispuzz();
+  //Redisplay marks/possibilities
+  if (dspmrks) optdmrk();
+}
+
+//Check possibility of number in selected cell
+function chkposs(num) {
+  for (var z=0; z<81; z++) {
+    // for each filled cell
+    if ((!ccanch[z]) || (cpickd[z])) {
+      // check if in the same row/col/box as the cell we're working on
+      if ((crows[z] == crows[mouseix]) && (cconts[z] == num)) return false;
+      if ((ccols[z] == ccols[mouseix]) && (cconts[z] == num)) return false;
+      if ((cboxs[z] == cboxs[mouseix]) && (cconts[z] == num)) return false;
+    }
+  }
+  return true;
+}
+
+//Secret display of correct answer to all changeable cells
+//Activated or deactivated by clicking in upper-left 10x10 corner of window
+function dispfull() {
+  if (dispall) {
+    dispall = false;
+    dispuzz();
+    if (dspmrks) optdmrk();
+    return;
+  }
+  dispall = true;
+  var drow = 0;
+  var dcol = 0;
+  for (var a=0; a<81; a++) {
+    if (ccanch[a]) {
+      context1.fillStyle = 'rgba(150, 150, 150, 0.5)';
+      context1.font = "600 36px Arial";
+      context1.fillText(sconts[a], dcol+dcoffs, drow+droffs);
+    }
+    dcol = dcol + 50;
+    if (dcol > 400) {
+      dcol = 0;
+      drow = drow + 50;
+    }
+  }   
+}
+
+// Display message1
+function message1(ms) {
+  msg1.innerHTML = ms;
+}
+
+// Display message2
+function message2(ms) {
+  msg2.innerHTML = ms;
+}
+
+
+</script>
+
+<!-- Space for control form -->
+<div style="position: absolute; left: 10; top: 15;">
+  <table border="2" width="170">
+    <tr>
+      <td height="360" width="170"><div style="visibility: hidden; position: relative;">&nbsp;<</div></td>
+    </tr>
+  </table>
+</div>
+
+<!-- Control form -->
+  <div style="position: absolute; left: 24; top: 25;">
+      <span style="position: relative; font-family: sans-serif; font-size: 20px; color: #000000; font-weight: bold;">
+      SuDokuManual<br><br>
+      </span>
+      <span style="font-family:sans-serif; font-size:16px; color:black; font-weight:bold;">
+        Mode<br>&nbsp;&nbsp;
+        <select name="optpmode" id="noptmode" size="2" onclick="javascript:optmode()">
+          <option selected value="set">Setup</option>
+          <option value="play">Play</option>
+        </select>
+      <br><br> 
+        <input type="submit" value="Restart This Puzzle" onclick="javascript:restart();">
+      <br><br>
+      </span>
+      <span id="msg1" style="font-family:sans-serif; font-size:16px; color:#000000; font-weight:bold;">
+        &nbsp;
+      </span>
+      <span style="font-family:sans-serif; font-size:16px; color:black; font-weight:bold;">
+      <br><br>
+        Show Possibilities<br>&nbsp;&nbsp;
+        <select name="optdmk" id="noptdmk" size="2" onclick="javascript:optdmrk()">
+          <option selected value="display">Display</option>
+          <option value="clear">Clear</option>
+        </select>
+        <br><br>
+      </span>
+      <span id="msg2" style="font-family:sans-serif; font-size:16px; color:#4080ff; font-weight:bold;">
+        &nbsp;
+      </span>
+      <span id="msg3" style="font-family:sans-serif; font-size:16px; color:red; font-weight:bold;">
+        <br><br>#### - Means&nbsp;No<br>Possibilities
+      </span>
+  </div>
+
+<!-- Rectangle for highlighting a cell -->
+  <svg  id="rhl" style="position: absolute; width: 50; height: 50; visibility: hidden">
+    <rect style="width:50; height:50; fill-opacity:0; stroke-width:14; stroke:#4080ff">
+    </rect>
+  </svg>
+
+</body>
+
+</html>

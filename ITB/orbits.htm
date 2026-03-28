@@ -1,0 +1,351 @@
+<html>
+
+<head>
+
+<title>Orbits</title>
+
+  <canvas id="Universe" width="610" height="610" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="setup()">
+
+<script>;
+
+//Global variables
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 8;
+  var canv = document.getElementById('Universe');
+  canv.style.left = xbase;
+  canv.style.top = 0;
+  var context = canv.getContext('2d');
+  var centerX = 304;
+  var centerY = 304;
+  var xoffst = -6;
+  var yoffst = -8;
+  var delay = 20;
+  var pie = Math.PI;
+  var twopie = 2.0*Math.PI;
+  //Radius of the visible universe
+  var urad = 300.0;
+  //Gravitational constant
+  var grav = 0.0;
+  //Adjust gravitation for number of bodies
+  var gravs = new Array();
+  gravs[0] = 0.0;
+  gravs[1] = 0.0;
+  gravs[2] = 1.0;
+  gravs[3] = 0.8;
+  gravs[4] = 0.6;
+  gravs[5] = 0.4;
+  gravs[6] = 0.2;
+  gravs[7] = 0.15;
+  gravs[8] = 0.1;
+  //Body parameters
+  //Mass of bodies
+  var stmass = 700.0;
+  var bmass = new Array();
+  //Number of bodies
+  var nbods = 0;
+  var totmass = 0.0;
+  var trace = false;
+  //Radius of bodies for display
+  var disprad = 15.0;
+  //Theoretical radius for calculations
+  var theorad = 36.0;
+  //Properties of the bodies
+  //X & Y Coordinates
+  var bx = new Array();
+  var newbx = new Array();
+  var by = new Array();
+  var newby = new Array();
+  //Polar Coords
+  var brho = new Array();
+  var btheta = new Array();
+  //Previous delta x and y
+  //Defines speed and direction of body
+  var prevdx = new Array();
+  var prevdy = new Array();
+  var prevdr = new Array();
+  //Gravitational forces between bodies
+  var forces = new Array();
+  //Direction, zero is to the right
+  //Direction increases counter-clockwise
+  //Complete circle is 2*Pi
+  var dirs = new Array();
+
+//Begin functions
+
+//Set up initial universe
+function setup() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") return;
+  //Display empty universe
+  context.beginPath();
+  context.arc(centerX, centerY, urad, 0, twopie, false);
+  context.fillStyle = 'black';
+  context.fill();
+  //Blank out the body names
+  for (var n=0;n<8;n++) {
+    var bodnam = document.getElementById('b'+n);
+    bodnam.style.visibility = "hidden";
+  }
+  totmass = 0.0;
+  //Add bodies
+  nbods = Math.floor(document.getElementById("nbodsinp").value * 1.0);
+  if (nbods < 2) nbods = 2;
+  if (nbods > 8) nbods = 8;
+  document.getElementById("nbodsinp").value = nbods;
+  trace = document.getElementById("opttrc").checked;
+  for(var n=0;n<nbods;n++) {
+    bmass[n] = stmass + 0.01*stmass*Math.random();
+    totmass = totmass + bmass[n];
+    //Put the bodies in a symmetrical pattern
+    brho[n] = urad - 160.0;
+    btheta[n] = (n/nbods)*twopie;
+    bx[n] = brho[n] * Math.cos(btheta[n]);
+    by[n] = brho[n] * Math.sin(btheta[n]);
+  }
+  //Set gravitational constant
+  grav = gravs[nbods];
+  for(var n=0;n<nbods;n++) {
+    //Set up each body for a stable orbit around the center
+    //Turns out, the influence of the other bodies won't let that happen
+    //Except when there are only two bodies
+    //Centrifugal force needed for orbit
+    var tforce = (grav*bmass[n]*bmass[n])/((2.0*brho[n])*(2.0*brho[n]));
+    //Angular velocity for orbit
+    dtheta = Math.sqrt(tforce/(brho[n]*bmass[n]));
+    //Initial X,Y velocity
+    var tx =  brho[n] * Math.cos(btheta[n] + dtheta);
+    var ty =  brho[n] * Math.sin(btheta[n] + dtheta);
+    prevdx[n] = tx - bx[n];
+    prevdy[n] = ty - by[n];
+    //Display the body
+    movbod(n);
+  }
+}
+
+//Move and display a body
+function movbod(n) {
+  //Display the circle
+  var drad = disprad;
+  if (trace) drad = 1.0;
+  context.beginPath();
+  context.arc(centerX+bx[n], centerY-by[n], drad, 0, twopie, false);
+  if (!trace) context.fillStyle = 'white';
+  else {
+    if (n == 0) context.fillStyle = 'red';
+    if (n == 1) context.fillStyle = 'green';
+    if (n == 2) context.fillStyle = 'blue';
+    if (n == 3) context.fillStyle = 'yellow';
+    if (n == 4) context.fillStyle = 'magenta';
+    if (n == 5) context.fillStyle = 'cyan';
+    if (n == 6) context.fillStyle = 'grey';
+    if (n == 7) context.fillStyle = 'white';
+  }
+  context.fill();
+  //Display the body name
+  if (!trace) {
+    var bodnam = document.getElementById('b'+n);
+    bodnam.style.left = xbase + xoffst + centerX + bx[n];
+    bodnam.style.top = yoffst + centerY - by[n];
+    bodnam.style.visibility = "visible" ;
+  }
+}
+
+//Get the Start/Stop button, toggle the running status
+function urun() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") {
+    ifrunning.style.visibility = "hidden";
+  }
+  else {
+    ifrunning.style.visibility = "visible";
+    runit() ;
+  }
+}
+
+//Run the bodies
+function runit() {
+  var ifrunning = document.getElementById("urunning");
+  //Don't do anything if not running
+  if (ifrunning.style.visibility == "hidden") return;
+  //Check each body
+  for(var k=0;k<nbods;k++) {
+    var dist = 0.0;
+    var ix = 0;
+    var deltx = 0.0
+    var delty = 0.0
+    //Calculate attractions and directions from the other bodies
+    for(var n=0;n<nbods;n++) {
+      if (n == k) continue;
+      dist = getdst(bx[k],by[k],bx[n],by[n]);
+      var olfact = 1.0;
+      //When bodies overlap, decrease their attraction
+      if (dist < theorad) {
+        olfact = dist/theorad;
+        dist = theorad;
+      }
+      forces[ix] = olfact*(grav*bmass[k]*bmass[n])/(dist*dist);
+      dirs[ix] = sgetdir(bx[k],by[k],bx[n],by[n]);
+      ix++;
+    }
+    //Get change in x and y based on attracting forces
+    deltx = prevdx[k]*bmass[k];
+    delty = prevdy[k]*bmass[k];
+    for (var p=0;p<ix;p++) {
+      deltx = deltx + Math.sin(dirs[p])*forces[p];
+      delty = delty + Math.cos(dirs[p])*forces[p];
+    }
+    //Compute new x value
+    deltx = deltx/bmass[k];
+    prevdx[k] = deltx;
+    newbx[k] = bx[k] + deltx;
+    //Compute new y value
+    delty = delty/bmass[k];
+    prevdy[k] = delty;
+    newby[k] = by[k] + delty;
+    prevdr[k] = Math.sqrt((prevdx[k]*prevdx[k]) + (prevdy[k]*prevdy[k])); 
+  }
+  //Update the positions
+  for(var n=0;n<nbods;n++) {
+    bx[n] = newbx[n];
+    by[n] = newby[n]
+    brho[n] = Math.sqrt(bx[n]*bx[n]+by[n]*by[n]);
+    btheta[n] = Math.atan2(by[n],bx[n]);
+  }
+  //Clear the field
+  if (!trace) {
+    context.beginPath();
+    context.arc(centerX, centerY, urad, 0, twopie, false);
+    context.fillStyle = 'black';
+    context.fill();
+  }
+  var totx = 0.0;
+  var toty = 0.0;
+  //find the center of mass
+  for(var n=0;n<nbods;n++) {
+    totx = totx + (bx[n]*bmass[n]);
+    toty = toty + (by[n]*bmass[n]);
+  }
+  //Adjust to the center
+  var adjx = totx / totmass;
+  var adjy = toty / totmass;
+  //Display each body in its current position
+  for(var n=0;n<nbods;n++) {
+    bx[n] = bx[n] - adjx;
+    by[n] = by[n] - adjy;
+    brho[n] = Math.sqrt(bx[n]*bx[n]+by[n]*by[n]);
+    btheta[n] = Math.atan2(by[n],bx[n]);
+    //If it hits the edge, turn it around
+    if (brho[n] >= (urad-disprad)) {
+      brho[n] = urad - disprad - 1.0;
+      bx[n] = brho[n] * Math.cos(btheta[n]);
+      by[n] = brho[n] * Math.sin(btheta[n]);
+      if (prevdr[n] > 0.0) prevdr[n] = 0.0 - prevdr[n];
+      prevdx[n] = prevdr[n] * Math.cos(btheta[n]);
+      prevdy[n] = prevdr[n] * Math.sin(btheta[n]);
+    }  
+    movbod(n);
+  }
+  //Set to reenter after a wait 
+  var timer = setTimeout("runit()",delay);
+}
+
+//Calculate signed direction from point 1 to point 2
+//Counterclockwise is positive
+function sgetdir(x1,y1,x2,y2) {
+  if (x2 >= x1) {
+    if (y2 >= y1) { 
+      return pie/2 - Math.atan((y2 - y1)/(x2 - x1)) ;
+    }
+    else {
+      return pie - Math.atan((x2 - x1)/(y1 - y2)) ;
+    }
+  }
+  if (y2 >= y1) { 
+    return 0 - Math.atan((x1 - x2)/(y2 - y1)) ;
+  }
+  else {
+    return pie*1.5 - Math.atan((y1 - y2)/(x1 - x2)) ;
+  }
+}
+
+//Calculate distance between two points
+function getdst(x1,y1,x2,y2) {
+  var xdif = x1-x2 ;
+  var ydif = y1-y2 ;
+  return Math.sqrt(xdif*xdif + ydif*ydif) ;
+}
+
+</script>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 220; width: 170">
+      <span style="font-family: sans-serif; font-size: 14px; color: #000000; font-weight: bold;">
+      <span style="font-size: 20px">Orbits</span><br><br>
+      <form name="nbcontrol" method="post" enctype="text/plain">
+        Number of Bodies, 2-8
+          &nbsp;&nbsp;<input type="number" id="nbodsinp" value="2" size="16" step="1">
+      </form>
+      <form name="cnttrc" method="post" enctype="text/plain">
+         <input type="checkbox" unchecked id="opttrc">Trace Mode
+      </form>
+      <form name="ureset" action="javaScript:setup();" method="post" enctype="text/plain">
+        <input type="submit" value="Reset">
+      </form>
+      <form name="startstop" action="javaScript:urun();" method="post" enctype="text/plain">  
+         <input type="submit" value="Start/Stop">
+      </form>
+      <span id="urunning" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">  Running </span>
+      </span>
+     <br>
+      <span id="msg" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+  </div>
+
+<!-- Put the body names into a table as a holding place, initially hidden -->
+<table>
+  <tr>
+    <td>
+      <div id=b0 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      A</div>
+      <div id=b1 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      B</div>
+      <div id=b2 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      C</div>
+      <div id=b3 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      D</div>
+      <div id=b4 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      E</div>
+      <div id=b5 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      F</div>
+      <div id=b6 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      G</div>
+      <div id=b7 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #ff0000;
+          font-weight: bold; position: absolute;">
+      H</div>
+    </td>
+  </tr>
+</table>
+
+</body>
+
+</html>

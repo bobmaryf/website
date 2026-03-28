@@ -1,0 +1,251 @@
+<html>
+<head>
+
+<title>MandelBifur</title>
+<!-- Mandelbrot image overlayed with bifurcation logistic map -->
+
+  <canvas id="myCanvas" width="600" height="600" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="gencall()">
+
+  <script>
+
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 5;
+  var canv = document.getElementById('myCanvas');
+  canv.style.left = xbase;
+  canv.style.top = ytop;
+  var context = canv.getContext('2d');
+  var mandel = context.createImageData(600, 600);
+  myCanvas.addEventListener('click', getmouse, false);
+  //Image generation parameters
+  var zoom = 1;
+  var iter = 1000;
+  var centerx = 0;
+  var centery = 0;
+  var mousex = 0;
+  var mousey = 0;
+  var startcx = 0;
+  var startcy = 0;
+  //Index into ImageData array mandel
+  var mix = 0;
+
+ //Begin functions
+
+  function gencall() {
+    //Show "Generating" message
+    busy.style.visibility = "visible";
+    //Wait a bit so the message will display
+    //Then call the image generator function
+    var timer = setTimeout("genimage()",50);
+  }
+
+  //Generate an image, based on the x,y center position and zoom factor 
+  function genimage() {
+    mix = 0;
+    context.clearRect(0, 0, canv.width, canv.height);
+    reddot.style.visibility = "hidden";
+    centerx = mousex;
+    centery = mousey;
+    zoom = document.getElementById("zoominp").value * 1.0;
+    iter = 1000;
+    var zoomf = 1.0/(150.0*zoom);
+    startcx = ((centerx*zoom)-300)*zoomf;
+    startcy = ((centery*zoom)-300)*zoomf;
+    //Loop through the x,y range of the image
+    //Y is reversed
+    for(var y=599;y>-1;y--) {
+      for(var x=0;x<600;x++) {
+        var cx = startcx + x*zoomf;
+        var cy = startcy + y*zoomf;
+        //Test whether this point is within the Mandelbrot Set
+        var i = mtest(cx,cy);
+        //Fill in the pixel data
+        fillpix(i); 
+      }
+    }
+    //Add the logistic map and display the result
+    logmap();
+    //Position white dot at the center of the image
+    centerdot.style.left = xbase + 299;
+    centerdot.style.top = ybase + ytop - 301;
+    //Turn off "Generating" message
+    busy.style.visibility = "hidden";
+  }
+
+  //Test point for Mandelbrot Set
+  function mtest(xcon,ycon) {
+    var zx = 0;
+    var zy = 0;
+    //Test whether this point is within the Mandelbrot Set 
+    for (ii=0;ii<iter;ii++) {
+      var xt = zx*zy;
+      zx = zx*zx-zy*zy+xcon;
+      zy = 2*xt+ycon;
+      var testv = zx*zx+zy*zy;
+      //If value is increasing, stop iteration, point is outside the set
+      if (testv > 4) break;
+    }
+    return ii;
+  }
+
+  //Fill in a pixel
+  function fillpix(iii) {
+    //The escape value "iii" determines the displayed color
+    if (iii > (iter-50)) {
+      //Reached max iterations, inside the set
+      //Black pixel
+      mandel.data[mix]   = 0;
+      mandel.data[mix+1] = 0;
+      mandel.data[mix+2] = 0;
+      mandel.data[mix+3] = 255;
+      mix = mix + 4;
+    }
+    else if (iii == 0) {
+      //Outside Mandelbrot outer limits
+      //White pixel
+      mandel.data[mix]   = 255;
+      mandel.data[mix+1] = 255;
+      mandel.data[mix+2] = 255;
+      mandel.data[mix+3] = 255;
+      mix = mix + 4;
+    }
+    else {
+      //Outside the Mandelbrot set
+      //Grey pixel
+      mandel.data[mix]   = 200;
+      mandel.data[mix+1] = 200;
+      mandel.data[mix+2] = 200;
+      mandel.data[mix+3] = 255;
+      mix = mix + 4;
+    }
+    return; 
+  }
+
+  //Display the logistic map
+  function logmap() {
+    var inc = 4/600;
+    var c = startcx;
+    for (var m=0; m<600; m++) {
+      var x = 0;
+      for (var n=0; n<100; n++) x = x*x + c;
+      for (var p=0; p<1000; p++) {
+        x = x*x + c;
+        var yval = Math.floor(600 - 150*(2-x));
+        if (yval > 599) yval = 599;
+        var xval = m;
+        var imix = 2400*(600-yval) + 4*xval;
+        mandel.data[imix]   = 0;
+        mandel.data[imix+1] = 0;
+        mandel.data[imix+2] = 255;
+        mandel.data[imix+3] = 255;
+      }
+      c = c + inc/zoom;
+      if (c > .2499) break;     
+    }
+    //Display it
+    context.putImageData(mandel, 0, 0);
+  }   
+
+  //Get location of mouse click
+  //Activated by mouse click event
+  function getmouse(ev) {
+    //Get color data of the clicked pixel
+    var imgData = context.getImageData(ev.clientX-xbase, ev.clientY-ytop, 1, 1);
+    //If pixel is white, it is outside the image area
+    if (imgData.data[0] == 255) {
+      if (imgData.data[1] == 255) {
+        if (imgData.data[2] == 255) return;
+      }
+    }
+    //Display the red dot at the click location
+    //For bifur, stay on the x axis
+    var yzero = ytop + 300;
+    reddot.style.left = ev.clientX-1;
+    reddot.style.top = yzero-1;
+    reddot.style.visibility = "visible";
+    //Set location params scaled to the image
+    mousex = centerx + (ev.clientX - xbase - 300)/zoom;
+    //Y value is reversed
+    mousey = centery + (ybase + ytop - yzero - 300)/zoom;
+    //Display the center coord values
+    xcenter.textContent = mousex/150;
+    ycenter.textContent = mousey/150;
+  }
+
+   //Reset location back to Mandelbrot center
+  function recenter() {
+    centerx = 0;
+    centery = 0;
+    mousex = 0;
+    mousey = 0;
+    xcenter.textContent = "0";
+    ycenter.textContent = "0";
+    reddot.style.visibility = "hidden";
+  }
+
+  //Turn center dot on or off
+  function dottoggle() {
+    var ifdot = document.getElementById("cendot").checked;
+    if (ifdot) {
+      centerdot.style.visibility = "visible";
+    }
+    else {
+      centerdot.style.visibility = "hidden";
+    }
+  }
+
+  //Reset zoom back to 1
+  function rezoom() {
+    document.getElementById("zoominp").value = 1;
+  }    
+ 
+  </script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="2" width="210">
+    <tr>
+      <td height="386" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 580; width: 170">
+      <span style="font-family: sans-serif; font-size: 16px; color: #000000; font-weight: bold;">
+      <span style="font-size: 20px">MandelBifur</span><br><br>
+      <form name="zoomcontrol" method="post" enctype="text/plain">
+        Zoom Factor
+          &nbsp;&nbsp;<input type="number" id="zoominp" value="1" size="16" step="any" min="1" max="1000000000000000">
+      </form>
+      <form name="zoomreset" action="javaScript:rezoom();" method="post" enctype="text/plain">
+        <input type="submit" value="Reset Zoom">
+      </form><br>
+      Click new center point<br>
+      X Center:<br>
+      <span id="xcenter" >0 </span><br>
+      Y Center:<br>
+      <span id="ycenter" >0 </span><br>
+      <form name="cenreset" action="javaScript:recenter();" method="post" enctype="text/plain">
+         <input type="submit" value="Reset Center">
+      </form>
+      <form name="toggledot" method="post" enctype="text/plain">
+         <input type="checkbox" checked id="cendot" onchange="javaScript:dottoggle();">Center Dot On/Off<br>
+      </form>
+      <form name="gencontrol" action="javaScript:gencall();" method="post" enctype="text/plain">  
+         <input type="submit" value="Generate Image">
+      </form>
+      <span id="busy" style="color: #ff0000; visibility: hidden">  Generating </span>
+    </span>
+  </div>
+  <!-- Dots -->
+  <div id="centerdot" style="position: absolute; left: 0; top: 0; height: 3; width: 3; background: white; visibility: visible"></div>
+  <div id="reddot" style="position: absolute; left: 0; top: 0; height: 3; width: 3; background: red; visibility: hidden"></div>
+
+</body>
+
+</html>

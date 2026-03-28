@@ -1,0 +1,468 @@
+<html>
+<!-- This is MandelBob modified to display Julia Sets -->
+<head>
+  <title>JuliaSetBob</title>
+  <canvas id="myCanvas" width="1100" height="600" style="position: absolute"></canvas>
+</head>
+
+<body onload="primaries()">
+
+  <script>
+
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 5;
+  var canvas = document.getElementById('myCanvas');
+  canvas.style.left = xbase;
+  canvas.style.top = ytop;
+  var context = canvas.getContext('2d');
+  var mandel = context.createImageData(600, 600);
+  myCanvas.addEventListener('click', getmouse, false);
+  //Color palette values
+  var reds = new Array();
+  var grns = new Array();
+  var blus = new Array();
+  //Image generation parameters
+  var zoom = 1;
+  var iter = 100;
+  var cmult = 10;
+  var centerx = 0;
+  var centery = 0;
+  var mousex = 0;
+  var mousey = 0;
+  var startcx = 0;
+  var startcy = 0;
+  var creal = 0;
+  var cimag = 0;
+  var plotx = 0;
+  var plotline = 0;
+  var plotval = 0;
+  var textmaxy = 505;
+  var plotit = false;
+  var paldisp = false;
+  var mix = 0;
+
+  //Begin functions
+  function gencall() {
+    //Show "Generating" message
+    busy.style.visibility = "visible";
+    //Wait a bit so the message will display
+    //Then call the generator function
+    var timer = setTimeout("genimage()",100);
+  }
+
+  //Generate an image, based on the x,y center position, Julia constants, and zoom factor 
+  function genimage() {
+    mix = 0;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    //Get the Julia constants
+    var ifranr = document.getElementById("ranreal").checked;
+    if (ifranr) {
+      //Generate random constant
+      creal = 4.0*Math.random() - 2.0;
+      creal = Math.round(creal*1000)/1000;
+    }
+    else {
+      //Get constant from form 
+      creal = document.getElementById("crinp").value;
+    }
+    var ifrani = document.getElementById("ranimag").checked;
+    if (ifrani) {
+      //Generate random constant
+      cimag = 4.0*Math.random() - 2.0;
+      cimag = Math.round(cimag*1000)/1000;
+    }
+    else {
+      //Get constant from form 
+      cimag = document.getElementById("ciinp").value;
+    }
+    creal = 1.0*creal;
+    cimag = 1.0*cimag;
+    if (creal < -2) creal = -2;
+    if (creal > 2) creal = 2;
+    if (cimag < -2) creal = -2;
+    if (cimag > 2) cimag = 2;
+    document.getElementById("crinp").value = creal;
+    document.getElementById("ciinp").value = cimag;
+    var black = true;
+    reddot.style.visibility = "hidden";
+    //Use last mouse click for center
+    centerx = mousex;
+    centery = mousey;
+    //Get zoom factor
+    zoom = document.getElementById("zoominp").value;
+    zoom = zoom*1.0;
+    if (paldisp) {
+      //Display the color palette
+      dispclrs();
+      busy.style.visibility = "hidden";
+      return;
+    }
+    if (plotit) {
+      //Display iteration values of selected point
+      var xpos = 5; 
+      var ypos = 12;
+      plotx = 0;
+      plotline = 0;
+    }
+    var zoomf = 1/(150*zoom);
+    startcx = ((centerx*zoom)-300)*zoomf;
+    startcy = ((centery*zoom)-300)*zoomf;
+    //Loop through the x,y range of the image
+    //Y is reversed
+    for(var y=599;y>-1;y--) {
+      for(var x=0;x<600;x++) {
+        var cx = startcx + x*zoomf;
+        var cy = startcy + y*zoomf;
+        //Test whether this point is in the set
+        for (var i=0;i<iter;i++) {
+          xt=cx*cx-cy*cy+creal;
+          cy=2*cx*cy+cimag;
+          cx=xt;
+          var testv = cx*cx + cy*cy;
+          if (plotit) {
+            if ((x == 299) && (y == 299)) {
+              context.clearRect(xpos, ypos-10, 150, 11);
+              context.font = "10px Arial";
+              context.fillStyle = "black";
+              if (testv > 4) context.fillStyle = "blue";
+              if (i == (iter-1)) context.fillStyle = "red"; 
+              context.fillText(i+1, xpos, ypos);
+              context.fillText(testv, xpos+26, ypos);
+              plotval = testv;
+              plot();
+              ypos = ypos + 10;
+              if (ypos > textmaxy) {
+                ypos = 12;
+                xpos = xpos + 150;
+                if (xpos > 700) xpos = 5;
+              }
+            }
+          }
+          //Test if tending toward infinity
+          if (testv > 4) break;
+        }
+        if (plotit) {
+          if ((x == 299) && (y == 299)) {
+            for (j=i+1; j<iter; j++) {
+              xt=cx*cx-cy*cy+creal;
+              cy=2*cx*cy+cimag;
+              cx=xt;
+              var testv = cx*cx + cy*cy;
+              context.clearRect(xpos, ypos-10, 150, 11);
+              context.font = "10px Arial";
+              context.fillStyle = "blue";
+              context.fillText(j+1, xpos, ypos);
+              context.fillText(testv, xpos+26, ypos);
+              plotval = testv;
+              plot();
+              if (!isFinite(testv)) {
+                busy.style.visibility = "hidden";
+                return;
+              }   
+              ypos = ypos + 10;
+              if (ypos > textmaxy) {
+                ypos = 12;
+                xpos = xpos + 150;
+                if (xpos > 700) xpos = 5;
+              }
+            }
+          busy.style.visibility = "hidden";
+          return;
+          }
+        }
+        if (i == iter) {
+          //Reached max iterations
+          //Black pixel
+          //Set pixel data
+          mandel.data[mix]   = 0;
+          mandel.data[mix+1] = 0;
+          mandel.data[mix+2] = 0;
+          mandel.data[mix+3] = 255;
+          mix = mix + 4;
+        }
+        else {
+          //Escaped before reaching max iterations
+          //Colored pixel
+          //Set pixel data
+          var ix = i*cmult;
+          black = false;
+          //Get color values from palette 
+          mandel.data[mix]   = reds[ix]*255/100;
+          mandel.data[mix+1] = grns[ix]*255/100;
+          mandel.data[mix+2] = blus[ix]*255/100;
+          mandel.data[mix+3] = 255;
+          mix = mix + 4;
+        }
+      }// End x loop
+    }//End y loop
+    //Write the image
+    if (!plotit) context.putImageData(mandel, 0, 0);
+    //Put a white dot at the center of the image
+    centerdot.style.left = xbase + 299;
+    centerdot.style.top = ybase + ytop - 301;
+    //Turn off "Generating" message
+    busy.style.visibility = "hidden";
+    if (black) {
+    //A black image was generated - offer a hint
+      context.font = "20px Arial";
+      context.fillStyle = "white";
+      context.fillText("Try decreasing zoom", 20, 30);
+    }
+  }
+
+  //Get location of mouse click
+  function getmouse(ev) {
+    if (ev.clientX > 828) return;
+    if (plotit) return;
+    //Get color data of the clicked pixel
+    var imgData = context.getImageData(ev.clientX-xbase, ev.clientY-ytop, 1, 1);
+    if (paldisp) {
+    //If palette is displayed, display color data of the pixel
+      context.clearRect(20, 10, 250, 24);
+      context.font = "20px Arial";
+      context.fillStyle = "black";
+      var clrnum = Math.floor((ev.clientY-ytop)/58)*100;
+      clrnum = clrnum + Math.floor((ev.clientX-xbase)/6);
+      var rval = Math.floor(imgData.data[0]*100/255);
+      var gval = Math.floor(imgData.data[1]*100/255);
+      var bval = Math.floor(imgData.data[2]*100/255);
+      context.fillText("#"+clrnum+","+rval+"%R,"+gval+"%G,"+bval+"%B", 20, 30);
+    }
+    //If pixel is white, it is outside the image area
+    if (imgData.data[0] == 255) {
+      if (imgData.data[1] == 255) {
+        if (imgData.data[2] == 255) return;
+      }
+    }
+    //Display the red dot at the click location
+    reddot.style.left = ev.clientX-1;
+    reddot.style.top = ev.clientY-1;
+    reddot.style.visibility = "visible";
+    if (paldisp) return;
+    //Set location params scaled to the image
+    mousex = centerx + (ev.clientX - xbase - 300)/zoom;
+    //Y value is reversed
+    mousey = centery + (ybase + ytop - ev.clientY - 300)/zoom;
+    //Display the center coord values
+    xcenter.innerHTML = mousex/150;
+    ycenter.innerHTML = mousey/150;
+  }
+
+  //Reset location back to center
+  function recenter() {
+    centerx = 0;
+    centery = 0;
+    mousex = 0;
+    mousey = 0;
+    xcenter.innerHTML = "0";
+    ycenter.innerHTML = "0";
+    reddot.style.visibility = "hidden";
+  }
+
+  //Turn center dot on or off
+  function dottoggle() {
+    var ifdot = document.getElementById("cendot").checked;
+    if (ifdot) {
+      centerdot.style.visibility = "visible";
+    }
+    else {
+      centerdot.style.visibility = "hidden";
+    }
+  }
+
+  function dispclrs() {
+  // Display the color palette
+    var x = 0;
+    var y = 596;
+    var z = 1;
+    for (var n =0; n<1000; n++) {
+      context.beginPath();
+      context.rect(x, ybase-y, 6, 58);
+      context.fillStyle = 'rgba('+reds[n]/100*255+','+grns[n]/100*255+','+blus[n]/100*255+',1)';
+      context.fill();
+      x = x + 6;
+      z++;
+      if (z > 100) {
+        z = 1;
+        x = 0;
+        y = y - 58;
+      }
+    }
+  }
+
+  function primaries() {
+    //Set up color palette in the basic RGB combinations
+    for (var n=0; n<100; n++) {
+      var p = n;
+      //blue to magenta
+      reds[p] = n;
+      grns[p] = 0;
+      blus[p] = 100;
+      p = p + 100;
+      //magenta to red
+      reds[p] = 100;
+      grns[p] = 0;
+      blus[p] = 100 - n;
+      p = p + 100;
+      //red to yellow
+      reds[p] = 100;
+      grns[p] = n;
+      blus[p] = 0;
+      p = p + 100;
+      //yellow to green
+      reds[p] = 100 - n;
+      grns[p] = 100;
+      blus[p] = 0;
+      p = p + 100;
+      //green to cyan
+      reds[p] = 0;
+      grns[p] = 100;
+      blus[p] = n;
+      p = p + 100;
+      //cyan to blue
+      reds[p] = 0;
+      grns[p] = 100 - n;
+      blus[p] = 100;
+      p = p + 100;
+      //blue to magenta again
+      reds[p] = n;
+      grns[p] = 0;
+      blus[p] = 100;
+      p = p + 100;
+      //magenta to red again
+      reds[p] = 100;
+      grns[p] = 0;
+      blus[p] = 100 - n;
+      p = p + 100;
+      //red to yellow again
+      reds[p] = 100;
+      grns[p] = n;
+      blus[p] = 0;
+      p = p + 100;
+      //yellow to green again
+      reds[p] = 100 - n;
+      grns[p] = 100;
+      blus[p] = 0;
+    }
+    fixclrs();
+    //Display initial image
+    gencall();
+  }
+
+  function fixclrs() {
+    //Blend end of palette with beginning so wraparound looks ok
+    var redch = (reds[1]-reds[950])/50.0;
+    var grnch = (grns[1]-grns[950])/50.0;
+    var bluch = (blus[1]-blus[950])/50.0;
+    for (var n=951; n<1000; n++) {
+      reds[n] = reds[n-1] + redch;
+      grns[n] = grns[n-1] + grnch;
+      blus[n] = blus[n-1] + bluch;
+    }
+    for (var n=0; n<1000; n++) {
+      //Don't let a pixel be white, white is reserved for out of bounds
+      if ((reds[n]+grns[n]+blus[n]) >= 300) blus[n] = 98;
+    }
+    //Locations outside Mandelbrot/Julia area will be white
+    //i.e. where the Mandelbrot/Julia test fails on the first attempt
+    reds[0] = 100;
+    grns[0] = 100;
+    blus[0] = 100;
+  }
+
+
+  function plot() {
+  //Put out a dot in plot of iteration values
+    plotx = plotx + 5;
+    if (plotx > 1000) {
+      plotx = 5;
+      plotline = plotline + 18;
+    }
+    ploty = plotval*5 + 5;
+    if (ploty > 590) return;
+    context.beginPath();
+    context.rect(plotx, ybase-ploty-plotline, 5, 5);
+    if (plotval < 4) context.fillStyle = 'rgba(0%,0%,0%,1)';
+    if (plotval >= 4) context.fillStyle = 'rgba(0%,0%,100%,1)';
+    context.fill();
+   }
+
+  function optdisplay() {
+  //Set up display type - default is Normal
+    plotit = false;
+    paldisp = false;
+    if (dispcontrol.optdisp.selectedIndex == 0) {
+      iter = 100;
+      cmult = 10;
+      return;
+    }
+    if (dispcontrol.optdisp.selectedIndex == 1) {
+      iter = 1000;
+      cmult = 1;
+      return;
+    }
+    if (dispcontrol.optdisp.selectedIndex == 2) paldisp = true;            
+    if (dispcontrol.optdisp.selectedIndex == 3) plotit = true;
+  }
+            
+  </script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="0" width="210">
+    <tr>
+      <td height= "546" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 580; width: 170">
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000; font-weight: bold;">
+      <span style="font-size: 16px;">JuliaSetBob</span><br><br>
+      <form name="conscontrol" method="post" enctype="text/plain">
+        Constants, range -2 to +2<br>
+          <input type="checkbox" id="ranreal">Random&nbsp;-&nbsp;Real<br>
+          <input type="number" id="crinp" value="-0.78"><br>
+          <input type="checkbox" id="ranimag">Random&nbsp;-&nbsp;Imaginary<br>
+          <input type="number" id="ciinp" value="0.156"><br>
+          <input type="reset" value="Reset Constants"><br>
+      </form>
+
+      <form name="zoomcontrol" method="post" enctype="text/plain">
+        Zoom Factor
+          &nbsp;&nbsp;<input type="number" id="zoominp" value="1">
+          <input type="reset" value="Reset Zoom">
+      </form>
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000">Click new center point<br>X Center:<br></span>
+      <span id="xcenter" style="font-family: sans-serif; font-size: 12px; color: #000000">0 </span><br>
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000">Y Center:<br></span>
+      <span id="ycenter" style="font-family: sans-serif; font-size: 12px; color: #000000">0 </span><br>
+      <form name="cenreset" action="javaScript:recenter();" method="post" enctype="text/plain">
+         <input type="submit" value="Reset Center">
+      </form>
+      <form name="toggledot" method="post" enctype="text/plain">
+         <input type="checkbox" checked id="cendot" onchange="javaScript:dottoggle();">Center Dot<br>
+      </form>
+      <form name="dispcontrol" method="post" enctype="text/plain">
+      Display<br>  
+      <select name="optdisp" size="4" onchange="javascript:optdisplay()">
+      <option selected value="0">Julia Low Res
+      <option value="1">Julia High Res
+      <option value="2">Palette
+      <option value="3">Iteration Values
+      </select><br><br>
+      </form>
+      <form name="gencontrol" action="javaScript:gencall();" method="post" enctype="text/plain">  
+         <input type="submit" value="Generate Display">
+      </form>
+      <span id="busy" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">  Generating </span>
+      </span>
+  </div>
+  <!-- Dots -->
+  <div id="centerdot" style="position: absolute; left: 0; top: 0; height: 3; width: 3; background: white; visibility: visible"></div>
+  <div id="reddot" style="position: absolute; left: 0; top: 0; height: 3; width: 3; background: red; visibility: hidden"></div>
+
+</body>
+</html>

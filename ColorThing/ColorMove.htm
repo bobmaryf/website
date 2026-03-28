@@ -1,0 +1,319 @@
+<html>
+
+<head>
+
+<title>ColorMove</title>
+<canvas id="myCanvas" width="600" height="600" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="javaScript:generate();">
+
+<script>
+
+var hinc = 1;
+var vinc = 1;
+var xcenter = 560;
+var ycenter = 308;
+var nrows = 600;
+var ncols = nrows;
+var maxr = nrows/2.0;
+var xd = 0.0;
+var yd = 0.0;
+var imix = 0;
+var pie = Math.PI;
+var twopie = 2.0*Math.PI;
+//Animation parameters
+var delay = 20;
+var cycle = false;
+var movdist = 1;
+var randir = 0.02;
+var flip = 0;
+var rdir = Math.random()*twopie;
+var gdir = Math.random()*twopie;
+var bdir = Math.random()*twopie;
+var swskew = false;
+
+var canv = document.getElementById('myCanvas');
+canv.style.left = xcenter-ncols/2;
+canv.style.top = ycenter-nrows/2;
+var context = canv.getContext('2d');
+var imdat = context.createImageData(ncols, nrows);
+
+var minc = 40;
+var red = 0; 
+var grn = 0; 
+var blu = 0;
+
+var rxoff = 0;
+var gxoff = 0;
+var bxoff = 0;
+var ryoff = 0;
+var gyoff = 0;
+var byoff = 0;
+
+var rmax = 255;
+var rspokes = 0;
+var rskew = 0;
+var radist = 1; 
+var rsdelt = 1; 
+var rsdist = 1;
+
+var gmax = 255;
+var gspokes = 0;
+var gskew = 0;
+var gadist = 1; 
+var gsdelt = 1; 
+var gsdist = 1;
+
+var bmax = 255;
+var bspokes = 0;
+var bskew = 0;
+var badist = 1; 
+var bsdelt = 1; 
+var bsdist = 1;
+
+//Begin functions
+
+function generate() {
+  //Fill in the screen and display it
+  setparms();
+  yd = nrows*vinc/2;
+  imix = 0;
+  //Loop through the dots on the screen
+  for (var r=0; r<nrows; r++) {
+    xd = 0 - ncols*hinc/2
+    for (var c=0; c<ncols; c++) {
+      //Fill in one dot
+      setcolrs();
+      xd = xd + hinc;
+    }
+    yd = yd - vinc;
+  }
+  //Display the whole thing
+  context.putImageData(imdat, 0, 0);
+  //After a delay, call ourself for the next image if we are cycling
+  if (cycle) var timer = setTimeout("generate()",delay);
+}
+
+function setparms() {
+  //Set up the parameters needed to generate the colors
+  //Red
+  rmax = (document.getElementById("rmaxid").value)*254.0/100.0;
+  rspokes = document.getElementById("rspokesid").value;
+  if (rspokes > 0) {
+    radist = twopie / rspokes;
+    rskew = rxoff*100/maxr;
+    if (!swskew) rskew = 0.0;
+    rsdelt = rskew * 10 / maxr;
+    rsdist = 0;
+    flip = Math.floor(Math.random()*2);
+    if (flip == 0) {
+      rdir = (rdir + twopie*randir) % twopie;
+    }
+    else {
+      rdir = rdir - twopie*randir;
+      if (rdir < 0.0) rdir = twopie + rdir; 
+    }
+    var d = movdist; 
+    //Compute new x value
+    newx = rxoff + d*Math.cos(rdir);
+    //Compute new y value
+    newy = ryoff + d*Math.sin(rdir);
+    if (Math.sqrt(newx*newx + newy*newy) > maxr) {
+      //At the edge - reverse direction
+      rdir = (rdir + pie) % twopie;
+      var d = movdist;
+      //Compute new x value
+      newx = rxoff + d*Math.cos(rdir);
+      //Compute new y value
+      newy = ryoff + d*Math.sin(rdir);
+    }
+    rxoff = newx;
+    ryoff = newy;
+  }
+  //Green
+  gmax = (document.getElementById("gmaxid").value)*254.0/100.0;
+  gspokes = document.getElementById("gspokesid").value;
+  if (gspokes > 0) {
+    gadist = twopie / gspokes;
+    gskew = gxoff*100/maxr;
+    if (!swskew) gskew = 0.0;
+    gsdelt = gskew * 10 / maxr;
+    gsdist = 0;
+    flip = Math.floor(Math.random()*2);
+    if (flip == 0) {
+      gdir = (gdir + twopie*randir) % twopie;
+    }
+    else {
+      gdir = gdir - twopie*randir;
+      if (gdir < 0.0) gdir = twopie + gdir; 
+    }
+    var d = movdist;
+    //Compute new x value
+    newx = gxoff + d*Math.cos(gdir);
+    //Compute new y value
+    newy = gyoff + d*Math.sin(gdir);
+    if (Math.sqrt(newx*newx + newy*newy) > maxr) {
+      //At the edge - reverse direction
+      gdir = (gdir + pie) % twopie;
+      var d = movdist;
+      //Compute new x value
+      newx = gxoff + d*Math.cos(gdir);
+      //Compute new y value
+      newy = gyoff + d*Math.sin(gdir);
+    }
+    gxoff = newx;
+    gyoff = newy;
+  }
+  //Blue
+  bmax = (document.getElementById("bmaxid").value)*254.0/100.0;
+  bspokes = document.getElementById("bspokesid").value;
+  if (bspokes > 0) {
+    badist = twopie / bspokes;
+    bskew = bxoff*100/maxr;
+    if (!swskew) bskew = 0.0;
+    bsdelt = bskew * 10 / maxr;
+    bsdist = 0;
+    flip = Math.floor(Math.random()*2);
+    if (flip == 0) {
+      bdir = (bdir + twopie*randir) % twopie;
+    }
+    else {
+      bdir = bdir - twopie*randir;
+      if (bdir < 0.0) bdir = twopie + bdir; 
+    }
+    var d = movdist;
+    //Compute new x value
+    newx = bxoff + d*Math.cos(bdir);
+    //Compute new y value
+    newy = byoff + d*Math.sin(bdir);
+    if (Math.sqrt(newx*newx + newy*newy) > maxr) {
+      //At the edge - reverse direction
+      bdir = (bdir + pie) % twopie;
+      var d = movdist;
+      //Compute new x value
+      newx = bxoff + d*Math.cos(bdir);
+      //Compute new y value
+      newy = byoff + d*Math.sin(bdir);
+    }
+    bxoff = newx;
+    byoff = newy;
+  }
+}
+
+function setcolrs() {
+  //Calculate the color of a dot
+  //Red******
+  red = rmax*1.0;
+  if (rspokes > 0) {
+    var opp = yd - ryoff;
+    var adj = xd - rxoff;
+    if (adj == 0) adj = .000001;
+    var dotr = Math.sqrt(opp*opp + adj*adj);
+    var dota = Math.atan(opp/adj);
+    if (adj < 0) dota = dota - Math.PI;
+    var rrem = 1;
+    var arem = 1;
+    rsdist = rsdelt * (1 - ((maxr - dotr) / maxr));
+    var arem = (dota + rsdist) / radist;
+    while (arem > 1) arem = arem - 1;
+    while (arem < 0) arem = 1 + arem;
+    if (arem < .5) arem = 1 - arem;
+    arem = 2.0*(1 - arem);
+    red = Math.floor(rmax * rrem * arem);
+    red = minc + ((red/rmax) * (rmax-minc));
+    if (red > 255) red = 255;
+  }
+  //Green******
+  grn = gmax*1.0;
+  if (gspokes > 0) {
+    var opp = yd - gyoff;
+    var adj = xd - gxoff;
+    if (adj == 0) adj = .000001;
+    var dotr = Math.sqrt(opp*opp + adj*adj);
+    var dota = Math.atan(opp/adj);
+    if (adj < 0) dota = dota - Math.PI;
+    var rrem = 1;
+    var arem = 1;
+    gsdist = gsdelt * (1 - ((maxr - dotr) / maxr));
+    var arem = (dota + gsdist) / gadist;
+    while (arem > 1) arem = arem - 1;
+    while (arem < 0) arem = 1 + arem;
+    if (arem < .5) arem = 1 - arem;
+    arem = 2.0*(1 - arem);
+    grn = Math.floor(gmax * rrem * arem);
+    grn = minc + ((grn/gmax) * (gmax-minc));
+    if (grn > 255) grn = 255;
+  }
+  //Blue******
+  blu = bmax*1.0;
+  if (bspokes > 0) {
+    var opp = yd - byoff;
+    var adj = xd - bxoff;
+    if (adj == 0) adj = .000001;
+    var dotr = Math.sqrt(opp*opp + adj*adj);
+    var dota = Math.atan(opp/adj);
+    if (adj < 0) dota = dota - Math.PI;
+    var rrem = 1;
+    var arem = 1;
+    bsdist = bsdelt * (1 - ((maxr - dotr) / maxr));
+    var arem = (dota + bsdist) / badist;
+    while (arem > 1) arem = arem - 1;
+    while (arem < 0) arem = 1 + arem;
+    if (arem < .5) arem = 1 - arem;
+    arem = 2.0*(1 - arem);
+    blu = Math.floor(bmax * rrem * arem);
+    blu = minc + ((blu/bmax) * (bmax-minc));
+    if (blu > 255) blu = 255;
+  }
+  //Move the color data to the image array
+  imdat.data[imix]   = red;
+  imdat.data[imix+1] = grn;
+  imdat.data[imix+2] = blu;
+  imdat.data[imix+3] = 255;
+  imix = imix + 4;
+}
+
+function cyctoggle() {
+//Start or stop the animated cycle
+  if (cycle) {
+    cycle = false;
+    return;
+  }
+  cycle = true;
+  generate();
+}
+
+</script>
+
+<div id="instr" style="height: 240px; width: 250px; position: absolute; left: 20">
+<table width="250" height="240" border="0">
+  <tr>
+    <td colspan=1 align="left">
+      <span style="font-family: Arial; color: #000000; font-size: 14px; font-weight: bold;">
+      <span style="font-size: 20px;">ColorMove</span><br><br>   
+        <form action="javaScript:cyctoggle();" method="post" enctype="text/plain">
+          <span style="color: #ff0000;">RED</span>
+          <br>Max Brightness(0-100) <input type="number" id="rmaxid" value="100" size="6" step="1" min="0" max="100">
+          <br>Spokes(0-20) <input type="number" id="rspokesid" value="2" size="6" step="1" min="0" max="20">
+          <br><br>
+          <span style="color: #00c000;">GREEN</span>
+          <br>Max Brightness(0-100) <input type="number" id="gmaxid" value="100" size="6" step="1" min="0" max="100">
+          <br>Spokes(0-20) <input type="number" id="gspokesid" value="2" size="6" step="1" min="0" max="20">
+          <br><br>
+          <span style="color: #0000ff;">BLUE</span>
+          <br>Max Brightness(0-100) <input type="number" id="bmaxid" value="100" size="6" step="1" min="0" max="100">
+          <br>Spokes(0-20) <input type="number" id="bspokesid" value="2" size="6" step="1" min="0" max="20">
+          <br><br>
+          <input type="submit" VALUE="Animation Start/Stop">
+        </form> 
+      </span>
+    </td>
+  </tr>
+</table>
+</div>
+
+</body>
+
+</html>

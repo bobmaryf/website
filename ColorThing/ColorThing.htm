@@ -1,0 +1,244 @@
+<html>
+
+<head>
+
+<title>Color Thing</title>
+<canvas id="myCanvas" width="600" height="600" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="javaScript:generate();">
+
+<script>
+
+var hinc = 1;
+var vinc = 1;
+var xcenter = 560;
+var ycenter = 308;
+var ndots = 0;
+var nrows = 600;
+var ncols = nrows;
+var maxxy = nrows/2;
+var maxr = Math.sqrt((maxxy*maxxy)+(maxxy*maxxy));
+var dx = new Array();
+var dy = new Array();
+var xd = 0.0;
+var yd = 0.0;
+var nix = 0;
+var imix = 0;
+
+var canv = document.getElementById('myCanvas');
+canv.style.left = xcenter-ncols/2;
+canv.style.top = ycenter-nrows/2;
+var context = canv.getContext('2d');
+var imdat = context.createImageData(ncols, nrows);
+
+var minc = 40;
+var red = 0; 
+var grn = 0; 
+var blu = 0;
+
+var rxoff = 0;
+var gxoff = 0;
+var bxoff = 0;
+var ryoff = 0;
+var gyoff = 0;
+var byoff = 0;
+
+var rmax = 255;
+var rspokes = 0;
+var rskew = 0;
+var radist = 1; 
+var rsdelt = 1; 
+var rsdist = 1;
+
+var gmax = 255;
+var gspokes = 0;
+var gskew = 0;
+var gadist = 1; 
+var gsdelt = 1; 
+var gsdist = 1;
+
+var bmax = 255;
+var bspokes = 0;
+var bskew = 0;
+var badist = 1; 
+var bsdelt = 1; 
+var bsdist = 1;
+
+//Begin functions
+
+function setparms() {
+  rmax = (document.getElementById("rmaxid").value)*254.0/100.0;
+  rspokes = document.getElementById("rspokesid").value;
+  rskew = document.getElementById("rskewid").value;
+  radist = ((2*Math.PI) / rspokes);
+  rsdelt = rskew * 10 / maxr;
+  rsdist = 0;
+  rxoff = document.getElementById("rxoffid").value;
+  rxoff = rxoff * maxxy / 100;
+  ryoff = document.getElementById("ryoffid").value; 
+  ryoff = ryoff * maxxy / 100;
+  gmax = (document.getElementById("gmaxid").value)*254.0/100.0;
+  gspokes = document.getElementById("gspokesid").value;
+  gskew = document.getElementById("gskewid").value;
+  gadist = ((2*Math.PI) / gspokes);
+  gsdelt = gskew * 10 / maxr;
+  gsdist = 0;
+  gxoff = document.getElementById("gxoffid").value;
+  gxoff = gxoff * maxxy / 100;
+  gyoff = document.getElementById("gyoffid").value;
+  gyoff = gyoff * maxxy / 100;
+  bmax = (document.getElementById("bmaxid").value)*254.0/100.0;
+  bspokes = document.getElementById("bspokesid").value;
+  bskew = document.getElementById("bskewid").value;
+  badist = ((2*Math.PI) / bspokes);
+  bsdelt = bskew * 10 / maxr;
+  bsdist = 0;
+  bxoff = document.getElementById("bxoffid").value;
+  bxoff = bxoff * maxxy / 100
+  byoff = document.getElementById("byoffid").value;
+  byoff = byoff * maxxy / 100;
+}
+
+function generate() {
+  context.fillStyle = "black";
+  context.fillRect(0, 0, canv.width, canv.height);
+  setparms();
+  ndots = 0;
+  nix = 0;
+  yd = nrows*vinc/2;
+  imix = 0;
+  for (var r=0; r<nrows; r++) {
+    xd = 0 - ncols*hinc/2
+    for (var c=0; c<ncols; c++) {
+      dx[ndots] = xd;
+      dy[ndots] = yd;
+      setcolrs();
+      xd = xd + hinc;
+      nix++;
+      ndots++;
+    }
+    yd = yd - vinc;
+  }
+  nix = 0;
+  setparms();
+  context.putImageData(imdat, 0, 0);
+}
+
+  
+function setcolrs() {
+
+  var opp = dy[nix] - ryoff;
+  var adj = dx[nix] - rxoff;
+  if (adj == 0) adj = .000001;
+  var dotr = Math.sqrt(opp*opp + adj*adj);
+  var dota = Math.atan(opp/adj);
+  if (adj < 0) dota = dota - Math.PI;
+  var rrem = 1;
+  var arem = 1;
+  if (rspokes > 0) {
+    rsdist = rsdelt * (1 - ((maxr - dotr) / maxr));
+    var arem = (dota + rsdist) / radist;
+    while (arem > 1) arem = arem - 1;
+    while (arem < 0) arem = 1 + arem;
+    if (arem < .5) arem = 1 - arem;
+    arem = 2.0*(1 - arem);
+    }
+  red = Math.floor(rmax * rrem * arem);
+  red = minc + ((red/rmax) * (rmax-minc));
+  if (red > 255) red = 255;
+
+  var opp = dy[nix] - gyoff;
+  var adj = dx[nix] - gxoff;
+  if (adj == 0) adj = .000001;
+  var dotr = Math.sqrt(opp*opp + adj*adj);
+  var dota = Math.atan(opp/adj);
+  if (adj < 0) dota = dota - Math.PI;
+  var rrem = 1;
+  var arem = 1;
+  if (gspokes > 0) {
+    gsdist = gsdelt * (1 - ((maxr - dotr) / maxr));
+    var arem = (dota + gsdist) / gadist;
+    while (arem > 1) arem = arem - 1;
+    while (arem < 0) arem = 1 + arem;
+    if (arem < .5) arem = 1 - arem;
+    arem = 2.0*(1 - arem);
+    }
+  grn = Math.floor(gmax * rrem * arem);
+  grn = minc + ((grn/gmax) * (gmax-minc));
+  if (grn > 255) grn = 255;
+
+  var opp = dy[nix] - byoff;
+  var adj = dx[nix] - bxoff;
+  if (adj == 0) adj = .000001;
+  var dotr = Math.sqrt(opp*opp + adj*adj);
+  var dota = Math.atan(opp/adj);
+  if (adj < 0) dota = dota - Math.PI;
+  var rrem = 1;
+  var arem = 1;
+  if (bspokes > 0) {
+    bsdist = bsdelt * (1 - ((maxr - dotr) / maxr));
+    var arem = (dota + bsdist) / badist;
+    while (arem > 1) arem = arem - 1;
+    while (arem < 0) arem = 1 + arem;
+    if (arem < .5) arem = 1 - arem;
+    arem = 2.0*(1 - arem);
+    }
+  blu = Math.floor(bmax * rrem * arem);
+  blu = minc + ((blu/bmax) * (bmax-minc));
+  if (blu > 255) blu = 255;
+
+  imdat.data[imix]   = red;
+  imdat.data[imix+1] = grn;
+  imdat.data[imix+2] = blu;
+  imdat.data[imix+3] = 255;
+  imix = imix + 4;
+}
+
+</script>
+
+<div id="instr" style="height: 240px; width: 250px; position: absolute; left: 20">
+<table width="250" height="240" border="0">
+  <tr>
+    <td colspan=1 align="left">
+      <span style="font-family: Arial; color: #000000; font-size: 14px; font-weight: bold;">
+      <span style="font-size: 20px;">COLOR THING</span><br><br>   
+        <form action="javaScript:generate();" method="post" enctype="text/plain">
+
+          <span style="color: #ff0000;">RED</span>
+          <br>Max Brightness(0-100) <input type="number" id="rmaxid" value="100" size="6" step="1" min="0" max="100">
+          <br>Spokes(0-20) <input type="number" id="rspokesid" value="3" size="6" step="1" min="0" max="20">
+          <br>Skew%(-100 to 100) <input type="number" id="rskewid" value="0" size="6" step="1" min="-100" max="100">
+          <br>Offset%(-100 to 100)
+          <br>  X <input type="number" id="rxoffid" value="0" size="4" step="1" min="-100" max="100"> 
+          <br>  Y <input type="number" id="ryoffid" value="0" size="4" step="1" min="-100" max="100"><br><br>
+
+          <span style="color: #00c000;">GREEN</span>
+          <br>Max Brightness(0-100) <input type="number" id="gmaxid" value="100" size="6" step="1" min="0" max="100">
+          <br>Spokes(0-20) <input type="number" id="gspokesid" value="3" size="6" step="1" min="0" max="20">
+          <br>Skew%(-100 to 100) <input type="number" id="gskewid" value="0" size="6" step="1" min="-100" max="100">
+          <br>Offset%(-100 to 100)
+          <br>  X <input type="number" id="gxoffid" value="0" size="4" step="1" min="-100" max="100"> 
+          <br>  Y <input type="number" id="gyoffid" value="0" size="4" step="1" min="-100" max="100"><br><br>
+          
+          <span style="color: #0000ff;">BLUE</span>
+          <br>Max Brightness(0-100) <input type="number" id="bmaxid" value="100" size="6" step="1" min="0" max="100">
+          <br>Spokes(0-20) <input type="number" id="bspokesid" value="3" size="6" step="1" min="0" max="20">
+          <br>Skew%(-100 to 100) <input type="number" id="bskewid" value="0" size="6" step="1" min="-100" max="100">
+          <br>Offset%(-100 to 100)
+          <br>  X <input type="number" id="bxoffid" value="0" size="4" step="1" min="-100" max="100"> 
+          <br>  Y <input type="number" id="byoffid" value="0" size="4" step="1" min="-100" max="100"><br><br>
+         
+         <input type="submit" VALUE="Generate Pattern">
+         <input type="reset" VALUE="Reset">
+        </form> 
+      </span>
+    </td>
+  </tr>
+</table>
+</div>
+
+</body>
+
+</html>

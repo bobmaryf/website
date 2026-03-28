@@ -1,0 +1,1805 @@
+<html>
+
+<head>
+
+  <title>SuDokuBob</title>
+  <canvas id="myCanvas1" width="456" height="456" style="position: absolute"></canvas>
+  <canvas id="myCanvas2" width="47" height="452" style="position: absolute"></canvas>
+  <canvas id="myCanvas3" width="10" height="10" style="position: absolute; left: 0; top: 0"></canvas>
+
+</head>
+
+<body onload="restoredata()">
+
+<script>
+
+  var xleft = 210;
+  var xleft2 = xleft+480;
+  var ytop = 10;
+  var canvas1 = document.getElementById('myCanvas1');
+  canvas1.style.left = xleft;
+  canvas1.style.top = ytop;
+  var context1 = canvas1.getContext('2d');
+  myCanvas1.addEventListener('click', getmouse, false);
+  var canvas2 = document.getElementById('myCanvas2');
+  canvas2.style.left = xleft2;
+  canvas2.style.top = ytop;
+  var context2 = canvas2.getContext('2d');
+  myCanvas2.addEventListener('click',picknum,false);
+  var rhxleft = xleft-2;
+  var rhytop = ytop+7;
+  myCanvas3.addEventListener('click',dispfull,false);
+  window.addEventListener('beforeunload',savedata);
+
+// Global variables
+var nemps = 81;
+//Number of hints for puzzle generator
+var numhints = 8;
+var savdiff = 2;
+//Cells are numbered 0 to 80
+// contents of the cells, 1-9, zero means empty 
+var cconts = new Array();
+//Cell can or can't change while playing a puzzle
+var ccanch = new Array();
+//Cell has or hasn't been picked & a number assigned to it for now
+var cpickd = new Array();
+// count of possible values in each cell
+var cpcnts = new Array();
+// indicators of which values are possible in each cell
+var cpvals = new Array();
+
+//x,y coords from mouse
+var mousex = 0;
+var mousey = 0;
+//Cell selected by mouse
+var mouseix = 0;
+//Ready or not for a number to be picked
+var pready = false;
+//number that was picked, 10 means erase
+var pinp = 0;
+var numfilled = 0;
+var dispall = false;
+
+// for indexing purposes, cells are numbered 0-80
+//Saved puzzle
+var sconts = new Array();
+// which row each cell is in
+var crows = new Array();
+// which column each cell is in
+var ccols = new Array();
+// which box each cell is in
+var cboxs = new Array();
+var droffs = 40;
+var dcoffs = 16;
+
+// initialize data that doesn't change
+var s1 = 0;
+for (var m=0; m<9; m++) {
+  for (var n=0; n<9; n++) {
+    crows[s1] = m;
+    s1++;
+  }
+}
+var s1 = 0;
+for (var m=0; m<9; m++) {
+  for (var n=0; n<9; n++) {
+    ccols[s1] = n;
+    s1++;
+  }
+}
+cboxs[ 0]=0;cboxs[ 1]=0;cboxs[ 2]=0;cboxs[ 3]=1;cboxs[ 4]=1;cboxs[ 5]=1;cboxs[ 6]=2;cboxs[ 7]=2;cboxs[ 8]=2;
+cboxs[ 9]=0;cboxs[10]=0;cboxs[11]=0;cboxs[12]=1;cboxs[13]=1;cboxs[14]=1;cboxs[15]=2;cboxs[16]=2;cboxs[17]=2;
+cboxs[18]=0;cboxs[19]=0;cboxs[20]=0;cboxs[21]=1;cboxs[22]=1;cboxs[23]=1;cboxs[24]=2;cboxs[25]=2;cboxs[26]=2;
+cboxs[27]=3;cboxs[28]=3;cboxs[29]=3;cboxs[30]=4;cboxs[31]=4;cboxs[32]=4;cboxs[33]=5;cboxs[34]=5;cboxs[35]=5;
+cboxs[36]=3;cboxs[37]=3;cboxs[38]=3;cboxs[39]=4;cboxs[40]=4;cboxs[41]=4;cboxs[42]=5;cboxs[43]=5;cboxs[44]=5;
+cboxs[45]=3;cboxs[46]=3;cboxs[47]=3;cboxs[48]=4;cboxs[49]=4;cboxs[50]=4;cboxs[51]=5;cboxs[52]=5;cboxs[53]=5;
+cboxs[54]=6;cboxs[55]=6;cboxs[56]=6;cboxs[57]=7;cboxs[58]=7;cboxs[59]=7;cboxs[60]=8;cboxs[61]=8;cboxs[62]=8;
+cboxs[63]=6;cboxs[64]=6;cboxs[65]=6;cboxs[66]=7;cboxs[67]=7;cboxs[68]=7;cboxs[69]=8;cboxs[70]=8;cboxs[71]=8;
+cboxs[72]=6;cboxs[73]=6;cboxs[74]=6;cboxs[75]=7;cboxs[76]=7;cboxs[77]=7;cboxs[78]=8;cboxs[79]=8;cboxs[80]=8;
+
+var nums = new Array();
+nums[0]="0";nums[1]="1";nums[2]="2";nums[3]="3";nums[4]="4";
+nums[5]="5";nums[6]="6";nums[7]="7";nums[8]="8";nums[9]="9";
+
+
+// Begin functions
+
+function savedata() {
+  //Our window is closing
+  //Save the puzzle data as JSON objects so it can be resumed
+  localStorage.setItem("savedCconts", JSON.stringify(cconts));
+  localStorage.setItem("savedCcanch", JSON.stringify(ccanch));
+  localStorage.setItem("savedCpickd", JSON.stringify(cpickd));
+  localStorage.setItem("savedSconts", JSON.stringify(sconts));
+  localStorage.setItem("Ssavdiff", JSON.stringify(savdiff));
+}
+
+function restoredata() {
+  //Get the puzzle data from the previous session
+  if (!localStorage.getItem('savedCconts')) {
+    //No data exists - go start a new puzzle
+    makepuzzle();
+    return;
+  }
+  //Get the JSON objects and put the data back in the puzzle arrays 
+  var retrievedData = localStorage.getItem("savedCconts");
+  cconts = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("savedCcanch");
+  ccanch = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("savedCpickd");
+  cpickd = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("savedSconts");
+  sconts = JSON.parse(retrievedData);
+  retrievedData = localStorage.getItem("Ssavdiff");
+  savdiff = JSON.parse(retrievedData);
+  if (savdiff < 1) savdiff = 2;
+  document.getElementById('diffinp').value = savdiff;  
+  //Erase the JSON objects
+  localStorage.removeItem('savedCconts');
+  localStorage.removeItem('savedCcanch');
+  localStorage.removeItem('savedCpickd');
+  localStorage.removeItem('savedSconts');
+  localStorage.removeItem('Ssavdiff');
+  //Display the puzzle and resume play
+  dispuzz();
+}
+
+//Set up the playing field and housekeep variables for a new puzzle
+function housekeep() {
+  //Display the field
+  dispfield() ;
+  numfilled = 0;
+  nemps = 81;
+  dispall = false;
+  clickwait = false;
+  pinp = "";
+  for (var x=0; x<81; x++) {
+    cconts[x] = 0;
+    cpcnts[x] = 9;
+    ccanch[x] = true;
+    cpickd[x] = false;
+  }
+  for (var y=0; y<811; y++) cpvals[y] = true;
+  message2(" ");
+}
+
+function dispfield() {
+  //Give the window background a little color
+  document.body.style.background = "#e0f0e0";
+  //Display the empty playing field
+  dispgrid();
+  //Set up the number pick list
+  context2.fillStyle = 'white';
+  context2.fillRect(0, 0, canvas2.width, canvas2.height);
+  context2.fillStyle = 'black';
+  context2.fillRect(0, 0, 2, canvas2.height);
+  context2.fillRect(45, 0, 2, canvas2.height);
+  var dinc = 0;
+  for (var x=0; x<11; x++) {
+    context2.fillRect(0, dinc, canvas2.width, 2);
+    dinc = dinc + 45;
+  }
+  dinc = 0
+  context2.fillStyle = 'black';
+  context2.font = "600 36px Arial";
+  for (var x=1; x<10; x++) {
+    context2.fillText(x, dcoffs-3, dinc+droffs-3);
+    dinc = dinc + 45;
+  }
+  context2.fillStyle = 'black';
+  context2.font = "800 12px Arial";
+  context2.fillText("Erase", 4, dinc+27);
+}
+
+function dispgrid() {
+  //Display the empty grid
+  //Clear the canvas
+  context1.fillStyle = 'white';
+  context1.fillRect(0, 0, canvas1.width, canvas1.height);
+  //Hide the highlight rectangle
+  var rhls = document.getElementById("rhl");
+  rhls.style.left = rhxleft;
+  rhls.style.top = rhytop;
+  rhls.style.visibility = "hidden";
+  var mess3 = document.getElementById('msg3');
+  mess3.style.visibility = "hidden";
+  //Draw the grid
+  context1.fillStyle = 'black';
+  var dinc = 50;
+  //Display the grid
+  for (var x=0; x<8; x++) {
+    context1.fillRect(dinc, 0, 2, canvas1.height);
+    context1.fillRect(0, dinc, canvas1.width, 2);
+    dinc = dinc + 50;
+  }
+  dinc = 0;
+  for (var x=0; x<4; x++) {
+    context1.fillRect(dinc, 0, 6, canvas1.height);
+    context1.fillRect(0, dinc, canvas1.width, 6);
+    dinc = dinc + 150;
+  }
+}
+
+function makepuzzle() {
+  //Generate a filled grid
+  fillgrid();
+  //Set difficulty level
+  var numh = document.getElementById("diffinp").value;
+  numh = Math.floor(numh);
+  savdiff = numh;
+  if (numh == 1) numhints = 12;
+  if (numh == 2) numhints = 8;
+  if (numh == 3) numhints = 4;
+  if (numh == 4) numhints = 1;
+  //Use code by David J. Rager to generate puzzle
+  var thePuzzle = new Sudoku();
+  thePuzzle._newGame();
+  //Display the results
+  dispuzz();
+}
+
+function fillgrid() {
+  housekeep();
+  // loop until all cells are filled
+  while(true) {
+    // set number of possibilities for each unfilled cell
+    for (var a=0; a<81; a++) {
+      if (cconts[a] == 0) var x = setposs(a);
+    }
+    var lowval = 10;
+    // find lowest number of possibilities
+    for (var b=0; b<81; b++) {
+      if (cconts[b] == 0) {
+        if (cpcnts[b] < lowval) lowval = cpcnts[b];
+        // if a cell shows zero possibilities, we have to start over
+        if (lowval == 0) {
+          fillgrid();
+          return;
+        }
+      }
+    }
+    var list = new Array();
+    var lix = 0;
+    // make a list of cells with lowest number of possibilities
+    for (var c=0; c<81; c++) {
+      if (cconts[c] == 0) {
+        if (cpcnts[c] == lowval) {
+          list[lix] = c;
+          lix++;
+        }
+      }
+    }
+    // pick randomly from the list
+    var d = Math.floor(Math.random()*lix);
+    var cell = list[d];
+    var snum = setposs(cell);
+    // pick one of the possible values randomly
+    var nm = Math.floor(Math.random()*10);
+    if (nm == 0) nm = 1;
+    while (!cpvals[cell*10 + nm]) {
+      nm++;
+      if (nm > 9) nm = 1;
+    }
+    // set up the cell
+    cconts[cell] = nm;
+    ccanch[cell] = false;
+    nemps--;
+    if (nemps == 0) {
+    numfilled = 81;
+    return;
+    }
+  }
+}
+
+// set possibilities for cell within its row, column & box
+function setposs(cn) {
+//  var cn;
+  for (var x=0; x<81; x++) {
+    if (crows[x] == crows[cn]) {
+      if (cconts[x] != 0) {
+        cpvals[cn*10 + cconts[x]] = false;
+      }
+    }
+    if (ccols[x] == ccols[cn]) {
+      if (cconts[x] != 0) {
+        cpvals[cn*10 + cconts[x]] = false;
+      }
+    }
+    if (cboxs[x] == cboxs[cn]) {
+      if (cconts[x] != 0) {
+        cpvals[cn*10 + cconts[x]] = false;
+      }
+    }
+  }
+  // get count of possibilities
+  cpcnts[cn] = 0;
+  var ix = cn*10 + 1;
+  var rn = 0;
+  for (var y=1; y<10; y++) {
+    if (cpvals[ix]) {
+      cpcnts[cn]++;
+      rn = y;
+    }
+    ix++;
+  }
+  // return value, in case only one value possible
+  return rn;
+}
+
+
+//Display the puzzle with the cells that are presently filled
+function dispuzz() {
+  //Display the empty field
+  dispfield();
+  numfilled = 0;
+  var drow = 0;
+  var dcol = 0;
+  for (var a=0; a<81; a++) {
+    if (!ccanch[a]) {
+      numfilled++;
+      //Display the cells in the original puzzle
+      context1.fillStyle = 'black';
+      context1.font = "600 36px Arial";
+      context1.fillText(cconts[a], dcol+dcoffs, drow+droffs);
+    }
+    if (cpickd[a]) {
+      //Display cells that have been picked and filled in
+      numfilled++;
+      context1.fillStyle = '#4080ff';
+      context1.font = "600 36px Arial";
+      context1.fillText(cconts[a], dcol+dcoffs, drow+droffs);
+    }
+    dcol = dcol + 50;
+    if (dcol > 400) {
+      dcol = 0;
+      drow = drow + 50;
+    }
+  }
+  dispall = false;
+  var mess = "Filled cells "+numfilled;
+  message1(mess);
+  optdmrk();
+  if (numfilled < 81) message2("Pick a cell");
+  if (numfilled == 81) message2("Congratulations!");
+}
+
+//Restart current puzzle
+function restart() {
+  for (var y=0; y<81; y++) {
+    cconts[y] = sconts[y];
+    cpickd[y] = false;
+  }
+  message2(" ");
+  var mess3 = document.getElementById('msg3');
+  mess3.style.visibility = "hidden";
+  //Display the puzzle
+  dispuzz();
+}  
+
+//Display or clear marks/possibilities
+function optdmrk() {
+  var drow = 0;
+  var dcol = 0;
+  var markd = document.getElementById('dmktog').checked;
+  // if clear
+  if (!markd) {
+    var blnk = "&nbsp;&nbsp;&nbsp;&nbsp;";
+    for (var x=0; x<81; x++) {
+      if ((ccanch[x]) && (!cpickd[x])) {
+        context1.fillStyle = 'white';
+        context1.fillRect(dcol+dcoffs-4, drow+droffs-26, 30, 26);
+      }
+      dcol = dcol + 50;
+      if (dcol > 400) {
+        dcol = 0;
+        drow = drow + 50;
+      }
+     }
+    return;
+  }
+  // for each undisplayed cell, see which numbers look possible
+  for (var x=0; x<81; x++) {
+    if ((ccanch[x]) && (!cpickd[x])) {
+      var strng1 = "";
+      var strng2 = "";
+      var stl = 0;
+      var poss = new Array();
+      for (var y=0; y<10; y++) poss[y] = true;
+      for (var z=0; z<81; z++) {
+        // for each filled cell
+        if ((!ccanch[z]) || (cpickd[z])){
+          // check if in the same row/col/box as the cell we're working on
+          if (crows[z] == crows[x]) poss[cconts[z]] = false;
+          if (ccols[z] == ccols[x]) poss[cconts[z]] = false;
+          if (cboxs[z] == cboxs[x]) poss[cconts[z]] = false;
+        }
+      }
+      // build strings of the possible numbers
+      for (var m=1; m<10; m++) {
+        if (poss[m]) {
+          if (stl <  4) strng1 = eval(strng1 + nums[m]);
+          if (stl >= 4) strng2 = eval(strng2 + nums[m]);
+          stl++; 
+        }
+      }
+      context1.fillStyle = 'black';
+      if (stl == 0) {
+        //Error - no possibilities
+        strng1 = "####";
+        strng2 - "";
+        context1.fillStyle = 'red';
+        var mess3 = document.getElementById('msg3');
+        mess3.style.visibility = "visible";
+      }
+      // display it
+        context1.font = "600 12px Arial";
+        context1.fillText(strng1, dcol+dcoffs-4, drow+droffs-12);
+        context1.fillText(strng2, dcol+dcoffs-4, drow+droffs-2);
+    }
+    dcol = dcol + 50;
+    if (dcol > 400) {
+      dcol = 0;
+      drow = drow + 50;
+    }
+  }
+}
+
+//Mouse clicked in main canvas
+function getmouse(ev) {
+  //Get coords
+  mousex = ev.clientX;
+  mousey = ev.clientY;
+  //Handle it
+  mouseact();
+}
+
+//Handle mouse selection
+function mouseact() {
+  if (numfilled == 81) return;
+  clickwait = false;
+  mousex = mousex - xleft;
+  if (mousex > 449) return;
+  if (mousex < 0) return;
+  mousey = mousey - ytop;
+  if (mousey > 449) return;
+  if (mousey < 0) return;
+  var mrow = Math.floor(mousey/50);
+  var mcol = Math.floor(mousex/50);
+  var mcell = 9*mrow + mcol;
+  var rhlm = document.getElementById("rhl");
+  if (!ccanch[mcell]) {
+    rhlm.style.visibility = "hidden";
+    pready = false;
+    message2("Pick a cell ");
+    return;
+  }
+  rhlm.style.left = 50*mcol + xleft + 1;
+  rhlm.style.top = 50*mrow + ytop + 1;
+  rhlm.style.visibility = "visible";
+  message2("Pick Number&#47;Erase");
+  mouseix = mcell;
+  pready = true;
+}
+
+//Handle mouse click on number selection column
+function picknum(ev) {
+  if (numfilled == 81) return;
+  if (!pready) return;
+  var tpinp = ev.clientY - ytop;
+  pinp = Math.floor(tpinp/45) + 1;
+  if (pinp < 10) {
+    //Check if selected number is possible here
+    if (!chkposs(pinp)) {
+      message2("Can&apos;t play "+pinp+" here");
+      pready = true;
+      return;
+    } 
+  }
+  message2(" ");
+  pready = false;
+  var rhlm = document.getElementById("rhl");
+  rhlm.style.visibility = "hidden";
+  //Set up the newly filled cell
+  cconts[mouseix] = pinp;
+  cpickd[mouseix] = true;
+  if (pinp > 9) {
+    //Number greater than 9 means erase the cell
+    cpickd[mouseix] = false;
+    cconts[mouseix] = sconts[mouseix];
+  }
+  //Redisplay the puzzle with its changes
+  dispuzz();
+  //Redisplay marks/possibilities
+  optdmrk();
+}
+
+//Check possibility of number in selected cell
+function chkposs(num) {
+  for (var z=0; z<81; z++) {
+    // for each filled cell
+    if ((!ccanch[z]) || (cpickd[z])) {
+      // check if in the same row/col/box as the cell we're working on
+      if ((crows[z] == crows[mouseix]) && (cconts[z] == num)) return false;
+      if ((ccols[z] == ccols[mouseix]) && (cconts[z] == num)) return false;
+      if ((cboxs[z] == cboxs[mouseix]) && (cconts[z] == num)) return false;
+    }
+  }
+  return true;
+}
+
+//Secret display of correct answer to all changeable cells
+//Activated or deactivated by clicking in upper-left 10x10 corner of window
+function dispfull() {
+  if (dispall) {
+    dispall = false;
+    dispuzz();
+    optdmrk();
+    return;
+  }
+  dispall = true;
+  var drow = 0;
+  var dcol = 0;
+  for (var a=0; a<81; a++) {
+    if (ccanch[a]) {
+      context1.fillStyle = 'rgba(150, 150, 150, 0.5)';
+      context1.font = "600 36px Arial";
+      context1.fillText(sconts[a], dcol+dcoffs, drow+droffs);
+    }
+    dcol = dcol + 50;
+    if (dcol > 400) {
+      dcol = 0;
+      drow = drow + 50;
+    }
+  }   
+}
+
+// Display message1
+function message1(ms) {
+  msg1.innerHTML = ms;
+}
+
+// Display message2
+function message2(ms) {
+  msg2.innerHTML = ms;
+}
+
+//*************Begin code from David J. Rager
+/*
+* Sudoku Generator
+* v0.2
+*
+* Copyright (c) 2010, David J. Rager
+* All rights reserved.
+* 
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are met: 
+* 
+*     * Redistributions of source code must retain the above copyright notice,
+*       this list of conditions and the following disclaimer.
+*     * Redistributions in binary form must reproduce the above copyright
+*       notice, this list of conditions and the following disclaimer in the
+*       documentation and/or other materials provided with the distribution.
+*     * Neither the name of Fourth Woods Media nor the names of its
+*       contributors may be used to endorse or promote products derived from
+*       this software without specific prior written permission.
+* 
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+* FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+* SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+* CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+* OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* This is a sudoku puzzle generator and solver. This program provides two
+* generation algorithms, a solver and methods to update and check the state of
+* the puzzle. This program does not provide any user interface controls.
+*
+* To create a new puzzle just instantiate the Sudoku object:
+*
+* var thePuzzle = new Sudoku();
+*
+* The puzzle is represented as a 9x9 matrix of numbers 0-9. A cell value of zero
+* indicates a cell that has been masked from view for the user to discover. A
+* user interface should display all the non-zero values to the user and blank
+* cells for any cell containing a zero.
+*
+* The puzzle uses either a simple shuffle algorithm or the backtracking solver
+* (the default) to create the puzzle.
+*
+* To start a new game call:
+*
+* thePuzzle.newGame();
+*
+* This class includes a solver that will solve the sudoku using a backtracking
+* algorithm. To solve the puzzle call the solve() method:
+*
+* thePuzzle.solve();
+*
+* If there is more than one solution to the sudoku puzzle, the solver will show
+* only one of them at random. The solver does not know if there is more than one
+* solution.
+*
+* The enumSolutions() method is a modified version of the solver that will count
+* all possible solutions for 
+*
+* Have fun. Send any comments, bugs, contribs to rageratwork@gmail.com
+*/
+
+// The Array class doesn't have a contains() method. We create one to make the
+// code cleaner and more readable.
+// Note, it seems that the decreasing while loop is the fastest way to iterate
+// over a collection in javascript:
+// http://blogs.sun.com/greimer/entry/best_way_to_code_a
+//
+// This method takes one parameter:
+// 	obj - the object to search for in the array. the object must be of the
+// 	      same type as the objects stored in the array.
+Array.prototype.contains = function(obj) {
+	var i = this.length;
+	while (i--) {
+		if (this[i] === obj) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// This clear method resets the values in the array to zero.
+Array.prototype.clear = function() {
+	var i = this.length;
+	while (i--) {
+		this[i] = 0;
+	}
+}
+
+// The timeDiff object is used for debugging, calculating the execution time for
+// the board generation algorithm. It may in the future be used to measure the
+// time it takes for the user to solve the puzzle.
+var timeDiff  =  {
+	// this method marks the beginning of an event.
+	start:function (){
+		d = new Date();
+		time  = d.getTime();
+	},
+
+	// this method returns the time elapsed in milliseconds since the
+	// beginning of an event.
+	end:function (){
+		d = new Date();
+		return (d.getTime()-time);
+	}
+}
+
+// The Sudoku class stores the matrix array and implements the game logic.
+// Instantiation of this class will automatically generate a new puzzle.
+function Sudoku() {
+	// 'private' methods...
+
+	// stores the 9x9 game data. the puzzle data is stored with revealed
+	// numbers as 1-9 and hidden numbers for the user to discover as zeros.
+	this.matrix = new Array(81);
+
+	// initial puzzle is all zeros.
+	this.matrix.clear();
+
+	// stores the difficulty level of the puzzle 0 is easiest.
+	this.level = 1;
+
+	// this method initializes the sudoku puzzle beginning with a root
+	// solution and randomly shuffling rows, columns and values. the result
+	// of this method will be a completely solved sudoku board. the shuffle
+	// is similar to that used by the sudoku puzzle at:
+	//
+	// http://www.dhtmlgoodies.com/scripts/game_sudoku/game_sudoku.html
+	//
+	// this method takes one parameter:
+	// 	matrix - the 9x9 array to store the puzzle data. the array
+	// 		 contents will be overwritten by this method.
+	this.shuffle = function(matrix) {
+		// create the root sudoku solution. this produces the following
+		// sudoku:
+		//
+		// 1 2 3 | 4 5 6 | 7 8 9
+		// 4 5 6 | 7 8 9 | 1 2 3
+		// 7 8 9 | 1 2 3 | 4 5 6
+		// ---------------------
+		// 2 3 4 | 5 6 7 | 8 9 1
+		// 5 6 7 | 8 9 1 | 2 3 4
+		// 8 9 1 | 2 3 4 | 5 6 7
+		// ---------------------
+		// 3 4 5 | 6 7 8 | 9 1 2
+		// 6 7 8 | 9 1 2 | 3 4 5
+		// 9 1 2 | 3 4 5 | 6 7 8
+//		for (var i = 0; i < 9; i++)
+//			for (var j = 0; j < 9; j++)
+//				matrix[i * 9 + j] = (i*3 + Math.floor(i/3) + j) % 9 + 1;
+
+//Code inserted by Bob Fairbairn
+//Move completely filled grid from Bob's code - it's "more random"
+for (var x=0; x<81; x++) {
+  this.matrix[x] = cconts[x];
+}
+
+
+		// randomly shuffle the numbers in the root sudoku. pick two
+		// numbers n1 and n2 at random. scan the board and for each
+		// occurence of n1, replace it with n2 and vice-versa. repeat
+		// several times. we pick 42 to make Douglas Adams happy.
+		for(var i = 0; i < 42; i++) {
+			var n1 = Math.ceil(Math.random() * 9);
+			var n2;
+			do {
+				n2 = Math.ceil(Math.random() * 9);
+			}
+			while(n1 == n2);
+
+			for(var row = 0; row < 9; row++) {
+				for(var col = 0; col < col; col++) {
+					if(matrix[row * 9 + col] == n1)
+						matrix[row * 9 + col] = n2;
+					else if(matrix[row * 9 + col] == n2)
+						matrix[row * 9 + col] = n1;
+				}
+			}
+		}
+
+		// randomly swap corresponding columns from each column of
+		// subsquares
+		//
+		//   |       |       |
+		//   |       |       |
+		//   V       V       V
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		//----------------------
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		//----------------------
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		//
+		// note that we cannot swap corresponding rows from each row of
+		// subsquares.
+		for (var c = 0; c < 42; c++) {
+			var s1 = Math.floor(Math.random() * 3);
+			var s2 = Math.floor(Math.random() * 3);
+
+			for(var row = 0; row < 9; row++) {
+				var tmp = this.matrix[row * 9 + (s1 * 3 + c % 3)];
+				this.matrix[row * 9 + (s1 * 3 + c % 3)] = this.matrix[row * 9 + (s2 * 3 + c % 3)];
+				this.matrix[row * 9 + (s2 * 3 + c % 3)] = tmp;
+			}
+		}
+
+		// randomly swap columns within each column of subsquares
+		//
+		//         | | |
+		//         | | |
+		//         V V V
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		//----------------------
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		//----------------------
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		for (var s = 0; s < 42; s++) {
+			var c1 = Math.floor(Math.random() * 3);
+			var c2 = Math.floor(Math.random() * 3);
+
+			for(var row = 0; row < 9; row++) {
+				var tmp = this.matrix[row * 9 + (s % 3 * 3 + c1)];
+				this.matrix[row * 9 + (s % 3 * 3 + c1)] = this.matrix[row * 9 + (s % 3 * 3 + c2)];
+				this.matrix[row * 9 + (s % 3 * 3 + c2)] = tmp;
+			}
+		}
+
+		// randomly swap rows within each row of subsquares
+		//
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		//----------------------
+		// . . . | . . . | . . . <---
+		// . . . | . . . | . . . <---
+		// . . . | . . . | . . . <---
+		//----------------------
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		// . . . | . . . | . . .
+		for (var s = 0; s < 42; s++) {
+			var r1 = Math.floor(Math.random() * 3);
+			var r2 = Math.floor(Math.random() * 3);
+
+			for(var col = 0; col < 9; col++)
+			{
+				var tmp = this.matrix[(s % 3 * 3 + r1) * 9 + col];
+				this.matrix[(s % 3 * 3 + r1) * 9 + col] = this.matrix[(s % 3 * 3 + r2) * 9 + col];
+				this.matrix[(s % 3 * 3 + r2) * 9 + col] = tmp;
+			}
+		}
+
+		// we could also randomly swap rows and columns of subsquares
+		//
+		//   |       |       |
+		//   |       |       |
+		// /---\   /---\   /---\
+		// . . . | . . . | . . .  \
+		// . . . | . . . | . . .  | <---
+		// . . . | . . . | . . .  /
+		//----------------------
+		// . . . | . . . | . . .  \
+		// . . . | . . . | . . .  | <---
+		// . . . | . . . | . . .  /
+		//----------------------
+		// . . . | . . . | . . .  \
+		// . . . | . . . | . . .  | <---
+		// . . . | . . . | . . .  /
+		//
+		// we could also rotate the board 90, 180 or 270 degrees and
+		// mirror left to right and/or top to bottom.
+
+	}
+
+	// this method randomly masks values in a solved sudoku board. for the
+	// easiest level it will hide 5 cells from each 3x3 subsquare.
+	//
+	// this method makes no attempt to ensure a unique solution and simply
+	// (naively) just masks random values. usually there will be only one
+	// solution however, there may be two or more. i've seen boards with as
+	// many as 6 or 7 solutions using this function, though that is pretty
+	// rare.
+	//
+	// this method takes two parameters:
+	// 	matrix - the game array completely initialized with the game
+	// 		 data.
+	// 	mask - an array to store the 9x9 mask data. the mask array will
+	// 	       contain the board that will be presented to the user.
+	this.maskBoardEasy = function(matrix, mask) {
+		var i, j, k;
+		for(i = 0; i < 81; i++)
+			mask[i] = matrix[i];
+
+		for (var i = 0; i < 3; i++) {
+			for (var j = 0; j < 3; j++) {
+				// for each 3x3 subsquare, pick 5 random cells
+				// and mask them.
+				for (var k = 0; k < 5; k++) {
+					var c;
+					do {
+						c = Math.floor(Math.random() * 9);
+					}
+					while(mask[(i * 3 + Math.floor(c / 3)) * 9 + j * 3 + c % 3] == 0);
+
+					mask[(i * 3 + Math.floor(c / 3)) * 9 + j * 3 + c % 3] = 0;
+				}
+			}
+		}
+	}
+
+	// this method scans all three zones that contains the specified cell
+	// and populates an array with values that have not already been used in
+	// one of the zones. the order of the values in the array are randomized
+	// so the solver may simply iterate linearly through the array to try
+	// the values in a random order rather than sequentially.
+	//
+	// this method takes three parameters:
+	// 	matrix - the array containing the current state of the puzzle.
+	// 	cell - the cell for which to retrieve available values.
+	// 	avail - the array to receive the available values. if this
+	// 		parameter is null, this method simply counts the number
+	// 		of available values without returning them.
+	//
+	// this method returns the length of the data in the available array.
+	this.getAvailable = function(matrix, cell, avail)
+	{
+		var i, j, row, col, r, c;
+		var arr = new Array(9);
+		arr.clear();
+
+		row = Math.floor(cell / 9);
+		col = cell % 9;
+
+		// row
+		for(i = 0; i < 9; i++)
+		{
+			j = row * 9 + i;
+			if(matrix[j] > 0)
+				arr[matrix[j] - 1] = 1;
+		}
+
+		// col
+		for(i = 0; i < 9; i++)
+		{
+			j = i * 9 + col;
+			if(matrix[j] > 0)
+			{
+				arr[matrix[j] - 1] = 1;
+			}
+		}
+
+		// square
+		r = row - row % 3;
+		c = col - col % 3;
+		for(i = r; i < r + 3; i++)
+			for(j = c; j < c + 3; j++)
+				if(matrix[i * 9 + j] > 0)
+					arr[matrix[i * 9 + j] - 1] = 1;
+
+		j = 0;
+		if(avail != null)
+		{
+			for(i = 0; i < 9; i++)
+				if(arr[i] == 0)
+					avail[j++] = i + 1;
+		}
+		else
+		{
+			for(i = 0; i < 9; i++)
+				if(arr[i] == 0)
+					j++;
+			return j;
+		}
+
+		if(j == 0)
+			return 0;
+
+		for(i = 0; i < 18; i++)
+		{
+			r = Math.floor(Math.random() * j);
+			c = Math.floor(Math.random() * j);
+			row = avail[r];
+			avail[r] = avail[c];
+			avail[c] = row;
+		}
+
+		return j;
+	}
+
+	// this method is used by the solver to find the next cell to be filled.
+	// the cell is chosen by finding a cell with the least amount of
+	// available values to try.
+	//
+	// this method takes one parameter:
+	// 	matrix - the array containing the current state of the puzzle.
+	//
+	// this method returns the next cell, or -1 if there are no cells left
+	// to choose.
+	this.getCell = function(matrix)
+	{
+		var cell = -1, n = 10, i, j;
+		var avail = new Array(9);
+		avail.clear();
+
+		for(i = 0; i < 81; i++)
+		{
+			if(matrix[i] == 0)
+			{
+				j = this.getAvailable(matrix, i, null);
+
+				if(j < n)
+				{
+					n = j;
+					cell = i;
+				}
+
+				if (n == 1)
+					break;
+			}
+		}
+
+		return cell;
+	}
+
+	// this is the actual solver. it implements a backtracking algorithm in
+	// which it randomly selects numbers to try in each cell. it starts
+	// with the first cell and picks a random number. if the number works in
+	// the cell, it recursively chooses the next cell and starts again. if
+	// all the numbers for a cell have been tried and none work, a number
+	// chosen for a previous cell cannot be part of the solution so we have
+	// to back up to the last cell and choose another number. if all the
+	// numbers for that cell have also been tried, we back up again. this
+	// continues until a value is chosen for all 81 cells.
+	//
+	// this method takes one parameter:
+	// 	matrix - the array containing the current state of the puzzle.
+	//
+	// this method returns 1 if a solution has been found or 0 if there was
+	// not a solution.
+	this.solve = function(matrix)
+	{
+		var i, j, ret = 0;
+		var cell = this.getCell(matrix);
+
+		// since this is the solver that is following the sudoku rules,
+		// if getCell returns -1 we are guaranteed to have found a valid
+		// solution. in this case we just return 1 (for 1 solution, see
+		// enumSolutions for more information).
+		if(cell == -1)
+			return 1;
+
+		var avail = new Array(9);
+		avail.clear();
+
+		j = this.getAvailable(matrix, cell, avail);
+		for(i = 0; i < j; i++)
+		{
+			matrix[cell] = avail[i];
+
+			// if we found a solution, return 1 to the caller.
+			if(this.solve(matrix) == 1)
+				return 1;
+
+			// if we haven't found a solution yet, try the next
+			// value in the available array.
+		}
+
+		// we've tried all the values in the available array without
+		// finding a solution. reset the cell value back to zero and
+		// return zero to the caller.
+		matrix[cell] = 0;
+		return 0;
+	}
+
+	// this method counts the number of possible solutions for a given
+	// puzzle. this uses the same algorithm as the solver but tries all
+	// the available values for all the cells incrementing a count every
+	// time a new solution is found. this method is used by the mask
+	// function to ensure there is only one solution to the puzzle.
+	//
+	// this method performs well for a puzzle with 20 or so hints. do not
+	// try this function on a blank puzzle (zero hints). there is not enough
+	// time remaining in the physical universe to enumerate all the possible
+	// sudoku boards. when this method returns, the puzzle passed in is
+	// restored to its original state.
+	//
+	// this method takes one parameter:
+	// 	matrix - the array containing the current state of the puzzle.
+	//
+	// this method returns the number of solutions found or 0 if there was
+	// not a solution.
+	this.enumSolutions = function(matrix)
+	{
+		var i, j, ret = 0;
+		var cell = this.getCell(matrix);
+
+		// if getCell returns -1 the board is completely filled which
+		// means we found a solution. return 1 for this solution.
+		if(cell == -1)
+			return 1;
+
+		var avail = new Array(9);
+		avail.clear();
+
+		j = this.getAvailable(matrix, cell, avail);
+		for(i = 0; i < j; i++)
+		{
+			// we try each available value in the array and count
+			// how many solutions are produced.
+			matrix[cell] = avail[i];
+
+			ret += this.enumSolutions(matrix);
+
+			// for the purposes of the mask function, if we found
+			// more than one solution, we can quit searching now
+			// so the mask algorithm can try a different value.
+			if(ret > 1)
+				break;
+		}
+
+		matrix[cell] = 0;
+		return ret;
+	}
+
+	// this method generates a minimal sudoku puzzle. minimal means that no
+	// remaining hints on the board may be removed and still generate a
+	// unique solution. when this method returns the resulting puzzle will
+	// contain about 20 to 25 hints that describe a puzzle with only one
+	// solution.
+	//
+	// this method takes two parameters:
+	// 	matrix - the game array completely initialized with the game
+	// 		 data.
+	// 	mask - an array to store the 9x9 mask data. the mask array will
+	// 	       contain the board that will be presented to the user.
+	this.maskBoard = function(matrix, mask)
+	{
+		var i, j, k, r, c, n = 0, a, hints = 0, cell, val;
+		var avail = new Array(9);
+		avail.clear();
+
+		var tried = new Array(81);
+		tried.clear();
+
+		// start with a cleared out board
+		mask.clear();
+
+		// randomly add values from the solved board to the masked
+		// board, picking only cells that cannot be deduced by existing
+		// values in the masked board.
+		//
+		// the following rules are used to determine the cells to
+		// populate:
+		// 1. based on the three zones to which the cell belongs, if
+		// more than one value can go in the cell (i.e. the selected
+		// cell value and at least one other value), check rule two.
+		// 2. for each zone, if the selected value could go in another
+		// free cell in the zone then the cell may be selected as a
+		// hint. this rule must be satisfied by all three zones.
+		//
+		// both rules must pass for a cell to be selected. once all 81
+		// cells have been checked, the masked board will represent a
+		// puzzle with a single solution.
+		do
+		{
+			// choose a cell at random.
+			do
+			{
+				cell = Math.floor(Math.random() * 81);
+			}
+			while((mask[cell] != 0) || (tried[cell] != 0));
+			val = matrix[cell];
+
+			// see how many values can go in the cell.
+			i = this.getAvailable(mask, cell, null);
+
+			if(i > 1)
+			{
+				// two or more values can go in the cell based
+				// on values used in each zone.
+				//
+				// check each zone and make sure the selected
+				// value can also be used in at least one other
+				// cell in the zone.
+				var cnt, row = Math.floor(cell / 9), col = cell % 9;
+
+				cnt = 0; // count the cells in which the value
+					 // may be used.
+
+				// look at each cell in the same row as the
+				// selected cell.
+				for(i = 0; i < 9; i++)
+				{	
+					// don't bother looking at the selected
+					// cell. we already know the value will
+					// work.
+					if(i == col)
+						continue;
+
+					j = row * 9 + i; // j stores the cell index
+
+					// if the value is already filled, skip
+					// to the next.
+					if(mask[j] > 0)
+						continue;
+
+					// get the values that can be used in
+					// the cell.
+					a = this.getAvailable(mask, j, avail);
+
+					// see if our value is in the available
+					// value list.
+					for(j = 0; j < a; j++)
+					{
+						if(avail[j] == val)
+						{
+							cnt++;
+							break;
+						}
+						avail[j] = 0;
+					}
+				}
+
+				// if the count is greater than zero, the
+				// selected value could also be used in another
+				// cell in that zone. we repeat the process with
+				// the other two zones.
+				if(cnt > 0)
+				{
+					// col
+					cnt = 0;
+					for(i = 0; i < 9; i++)
+					{
+						if(i == row)
+							continue;
+
+						j = i * 9 + col;
+						if(mask[j] > 0)
+							continue;
+						a = this.getAvailable(mask, j, avail);
+						for(j = 0; j < a; j++)
+						{
+							if(avail[j] == val)
+							{
+								cnt++;
+								break;
+							}
+							avail[j] = 0;
+						}
+					}
+
+					// if the count is greater than zero,
+					// the selected value could also be used
+					// in another cell in that zone. we
+					// repeat the process with the last
+					// zone.
+					if(cnt > 0)
+					{
+						// square
+						cnt = 0;
+						r = row - row % 3;
+						c = col - col % 3;
+						for(i = r; i < r + 3; i++)
+						{
+							for(j = c; j < c + 3; j++)
+							{
+								if((i == row) && (j == col))
+									continue;
+	
+								k = i * 9 + j;
+								if(mask[k] > 0)
+									continue;
+								a = this.getAvailable(mask, k, avail);
+								for(k = 0; k < a; k++)
+								{
+									if(avail[k] == val)
+									{
+										cnt++;
+										break;
+									}
+									avail[k] = 0;
+								}
+							}
+						}
+
+						if(cnt > 0)
+						{
+							mask[cell] = val;
+							hints++;
+						}
+					}
+				}
+			}
+
+			tried[cell] = 1;
+			n++;
+		}
+		while(n < 81);
+
+		// at this point we should have a masked board with about 40 to
+		// 50 hints. randomly select hints and remove them. for each
+		// removed hint, see if there is still a single solution. if so,
+		// select another hint and repeat. if not, replace the hint and
+		// try another.
+		do
+		{
+			do
+			{
+				cell = Math.floor(Math.random() * 81);
+			}
+			while((mask[cell] == 0) || (tried[cell] == 0));
+
+			val = mask[cell];
+
+			var t = this;
+			var solutions = 0;
+
+			mask[cell] = 0;
+			solutions = this.enumSolutions(mask);
+
+			if(solutions > 1)
+				mask[cell] = val;
+
+			tried[cell] = 0;
+			hints--;
+		}
+		while(hints > 0);
+
+		// at this point we have a board with about 20 to 25 hints and a
+		// single solution.
+	}
+
+
+	// this method checks whether a value will work in a given cell. it
+	// checks each zone to ensure the value is not already used.
+	//
+	// this method takes three parameters:
+	// 	row - the row of the cell
+	// 	col - the column of the cell
+	// 	val - the value to try in the cell
+	//
+	// this method returns true if the value can be used in the cell, false
+	// otherwise.
+	this._checkVal = function(matrix, row, col, val) {
+		var i, j, r, c;
+		// check each cell in the row to see if the value already
+		// exists in the row. do not look at the value of the cell in
+		// the column we are trying. repeat for each zone.
+		for(i = 0; i < 9; i++)
+		{
+			if((i != col) && (matrix[row * 9 + i] == val))
+				return false;
+		}
+
+		// check col
+		for(i = 0; i < 9; i++)
+		{
+			if((i != row) && (matrix[i * 9 + col] == val))
+				return false;
+		}
+
+		// check square
+		r = row - row % 3;
+		c = col - col % 3;
+		for(i = r; i < r + 3; i++)
+			for(j = c; j < c + 3; j++)
+				if(((i != row) || (j != col)) && (matrix[i * 9 + j] == val))
+					return false;
+
+		return true;
+	}
+
+	// 'public' methods
+
+	// this method checks whether a value will work in a given cell. it
+	// checks each zone to ensure the value is not already used.
+	//
+	// this method takes three parameters:
+	// 	row - the row of the cell
+	// 	col - the column of the cell
+	// 	val - the value to try in the cell
+	//
+	// this method returns true if the value can be used in the cell, false
+	// otherwise.
+	this.checkVal = function(row, col, val)
+	{
+		return this._checkVal(this.matrix, row, col, val);
+	}
+
+	// this method sets the value for a particular cell. this is called by
+	// the user interface when the user enters a value.
+	//
+	// this method takes three parameters:
+	// 	row - the row of the cell
+	// 	col - the column of the cell
+	// 	val - the value to enter in the cell
+	this.setVal = function(row, col, val)
+	{
+		this.matrix[row * 9 + col] = val;
+	}
+
+	// this method gets the value for a particular cell. this is called by
+	// the user interface for displaying the contents of a cell.
+	//
+	// this method takes two parameters:
+	// 	row - the row of the cell
+	// 	col - the column of the cell
+	//
+	// this method returns the value of the cell at the specified location.
+	this.getVal = function(row, col)
+	{
+		return this.matrix[row * 9 + col];
+	}
+
+	// this method initializes a new game using the solver to generate the
+	// board.
+	this._newGame = function() {
+		var i, hints = 0;
+		var mask = new Array(81);
+		// clear out the game matrix.
+		this.matrix.clear();
+
+		// call the solver on a completely empty matrix. this will
+		// generate random values for cells resulting in a solved board.
+		this.solve(this.matrix);
+
+//Code inserted by Bob Fairbairn
+//Move completely filled grid to saved puzzle array
+for (var x=0; x<81; x++) {
+  sconts[x] = this.matrix[x];
+}
+
+		// generate a minimal sudoku puzzle with a single solution.
+		this.maskBoard(this.matrix, mask);
+
+		// if the level is easy, randomly add 12 extra hints. 8 for medium.
+//		if(this.level == 0)
+//			hints = 12;
+//		else if(this.level == 1)
+//			hints = 8;
+
+//Code inserted by Bob Fairbairn
+//Set difficulty, i.e. number of added hints
+hints = numhints;
+
+		for(i = 0; i < hints; i++)
+		{
+			do
+			{
+				var cell = Math.floor(Math.random() * 81);
+			}
+			while(mask[cell] != 0);
+
+			mask[cell] = this.matrix[cell];
+		}
+
+		// save the solved matrix.
+		this.save = this.matrix;
+
+		// set the masked matrix as the puzzle.
+		this.matrix = mask;
+
+		timeDiff.start();
+
+//Code inserted by Bob Fairbairn
+//Move finished puzzle to working array
+for (var x=0; x<81; x++) {
+  cconts[x] = this.matrix[x];
+  ccanch[x] = false;
+  if (cconts[x] == 0) {
+    ccanch[x] = true;
+    cconts[x] = sconts[x];
+  }
+}
+
+	}
+
+	this.done;
+
+	this._doHints = function(matrix, mask, tried, hints)
+	{
+		// at this point we should have a masked board with about 40 to
+		// 50 hints. randomly select hints and remove them. for each
+		// removed hint, see if there is still a single solution. if so,
+		// select another hint and repeat. if not, replace the hint and
+		// try another.
+		if(hints > 0)
+		{
+			do
+			{
+				cell = Math.floor(Math.random() * 81);
+			}
+			while((mask[cell] == 0) || (tried[cell] == 0));
+
+			val = mask[cell];
+
+			var t = this;
+			var solutions = 0;
+
+			mask[cell] = 0;
+			solutions = this.enumSolutions(mask);
+			//console.log("timeout");
+
+			if(solutions > 1)
+				mask[cell] = val;
+
+			tried[cell] = 0;
+			hints--;
+			var t = this;
+			setTimeout(function(){t._doHints(matrix, mask, tried, hints);}, 50);
+		}
+		else
+		{
+			this._doStart(mask);
+//			this.done();
+this.done;
+		}
+
+		//console.log(hints);
+
+		// at this point we have a board with about 20 to 25 hints and a
+		// single solution.
+	}
+
+	this._doMask = function(matrix, mask)
+	{
+		var i, j, k, r, c, n = 0, a, hints = 0, cell, val;
+		var avail = new Array(9);
+		avail.clear();
+
+		var tried = new Array(81);
+		tried.clear();
+
+		// start with a cleared out board
+		mask.clear();
+
+		// randomly add values from the solved board to the masked
+		// board, picking only cells that cannot be deduced by existing
+		// values in the masked board.
+		//
+		// the following rules are used to determine the cells to
+		// populate:
+		// 1. based on the three zones to which the cell belongs, if
+		// more than one value can go in the cell (i.e. the selected
+		// cell value and at least one other value), check rule two.
+		// 2. for each zone, if the selected value could go in another
+		// free cell in the zone then the cell may be selected as a
+		// hint. this rule must be satisfied by all three zones.
+		//
+		// both rules must pass for a cell to be selected. once all 81
+		// cells have been checked, the masked board will represent a
+		// puzzle with a single solution.
+		do
+		{
+			// choose a cell at random.
+			do
+			{
+				cell = Math.floor(Math.random() * 81);
+			}
+			while((mask[cell] != 0) || (tried[cell] != 0));
+			val = matrix[cell];
+
+			// see how many values can go in the cell.
+			i = this.getAvailable(mask, cell, null);
+
+			if(i > 1)
+			{
+				// two or more values can go in the cell based
+				// on values used in each zone.
+				//
+				// check each zone and make sure the selected
+				// value can also be used in at least one other
+				// cell in the zone.
+				var cnt, row = Math.floor(cell / 9), col = cell % 9;
+
+				cnt = 0; // count the cells in which the value
+					 // may be used.
+
+				// look at each cell in the same row as the
+				// selected cell.
+				for(i = 0; i < 9; i++)
+				{	
+					// don't bother looking at the selected
+					// cell. we already know the value will
+					// work.
+					if(i == col)
+						continue;
+
+					j = row * 9 + i; // j stores the cell index
+
+					// if the value is already filled, skip
+					// to the next.
+					if(mask[j] > 0)
+						continue;
+
+					// get the values that can be used in
+					// the cell.
+					a = this.getAvailable(mask, j, avail);
+
+					// see if our value is in the available
+					// value list.
+					for(j = 0; j < a; j++)
+					{
+						if(avail[j] == val)
+						{
+							cnt++;
+							break;
+						}
+						avail[j] = 0;
+					}
+				}
+
+				// if the count is greater than zero, the
+				// selected value could also be used in another
+				// cell in that zone. we repeat the process with
+				// the other two zones.
+				if(cnt > 0)
+				{
+					// col
+					cnt = 0;
+					for(i = 0; i < 9; i++)
+					{
+						if(i == row)
+							continue;
+
+						j = i * 9 + col;
+						if(mask[j] > 0)
+							continue;
+						a = this.getAvailable(mask, j, avail);
+						for(j = 0; j < a; j++)
+						{
+							if(avail[j] == val)
+							{
+								cnt++;
+								break;
+							}
+							avail[j] = 0;
+						}
+					}
+
+					// if the count is greater than zero,
+					// the selected value could also be used
+					// in another cell in that zone. we
+					// repeat the process with the last
+					// zone.
+					if(cnt > 0)
+					{
+						// square
+						cnt = 0;
+						r = row - row % 3;
+						c = col - col % 3;
+						for(i = r; i < r + 3; i++)
+						{
+							for(j = c; j < c + 3; j++)
+							{
+								if((i == row) && (j == col))
+									continue;
+	
+								k = i * 9 + j;
+								if(mask[k] > 0)
+									continue;
+								a = this.getAvailable(mask, k, avail);
+								for(k = 0; k < a; k++)
+								{
+									if(avail[k] == val)
+									{
+										cnt++;
+										break;
+									}
+									avail[k] = 0;
+								}
+							}
+						}
+
+						if(cnt > 0)
+						{
+							mask[cell] = val;
+							hints++;
+						}
+					}
+				}
+			}
+
+			tried[cell] = 1;
+			n++;
+		}
+		while(n < 81);
+
+		var t = this;
+		setTimeout(function(){t._doHints(matrix, mask, tried, hints);}, 50);
+	}
+
+	this._doStart = function(mask) {
+		var i, hints = 0;
+		// if the level is easy randomly ad 12 hints, 8 for medium.
+		if(this.level == 0)
+			hints = 12;
+		else if(this.level == 1)
+			hints = 8;
+
+		for(i = 0; i < hints; i++)
+		{
+			do
+			{
+				var cell = Math.floor(Math.random() * 81);
+			}
+			while(mask[cell] != 0);
+
+			mask[cell] = this.matrix[cell];
+		}
+
+		// save the solved matrix.
+		this.save = this.matrix;
+
+		// set the masked matrix as the puzzle.
+
+		this.matrix = mask;
+
+
+		timeDiff.start();
+	}
+
+	this.newGame = function() {
+		var mask = new Array(81);
+
+		// clear out the game matrix.
+		this.matrix.clear();
+
+		// call the solver on a completely empty matrix. this will
+		// generate random values for cells resulting in a solved board.
+		this.solve(this.matrix);
+
+		// the level is medium or greater. use the advanced mask
+		// function to generate a minimal sudoku puzzle with a
+		// single solution.
+		this._doMask(this.matrix, mask);
+	}
+
+	// this method solves the current game by restoring the solved matrix.
+	// if the original unmodified masked matrix was saved, this function
+	// could call the solve method which would undo any wrong player guesses
+	// and actually solve the game.
+	this.solveGame = function() {
+		this.matrix = this.save;
+	}
+
+	// this method determines wether or not the game has been completed. it
+	// looks at each cell and determines whether or not a value has been
+	// entered. if not, the game is not done. if a value has been entered,
+	// it calls checkVal() to make sure the value does not violate the
+	// sudoku rules. if both checks are passed for each cell in the board
+	// the game is complete.
+	this.gameFinished = function()
+	{
+		for(var i = 0; i < 9; i++)
+		{
+			for(var j = 0; j < 9; j++)
+			{
+				var val = this.matrix[i * 9 + j];
+				if((val == 0) || (this._checkVal(this.matrix, i, j, val) == false))
+					return 0;
+			}
+		}
+
+		return timeDiff.end();
+	}
+
+	this.getBoardString = function()
+	{
+		var str = "";
+       		for(var i = 0; i < 81; i++)
+        	{
+			str += this.matrix[i];
+	        }
+
+		str = str = str.replace(/0/g, '.');
+        	return str;
+	}
+}
+//***************End code from David J. Rager 
+
+</script>
+
+<!-- Control form -->
+  <div style="position: absolute; left: 24; top: 25;">
+      <span style="position: relative; font-family: sans-serif; font-size: 20px; color: #000000; font-weight: bold;">
+      SuDokuBob<br><br>
+      </span>
+      <span style="font-family:sans-serif; font-size:16px; color:black; font-weight:bold;">
+        Difficulty, 1-4<br>
+        <input type="number" id="diffinp" value="2" size="3" step="1" min="1" max="4"><br>
+        <input type="submit" value="Start New Puzzle" onclick="javascript:makepuzzle();"><br><br>
+        <input type="submit" value="Restart This Puzzle" onclick="javascript:restart();">
+      <br><br>
+      </span>
+      <span id="msg1" style="font-family:sans-serif; font-size:16px; color:#000000; font-weight:bold;">
+        &nbsp;
+      </span>
+      <span style="font-family:sans-serif; font-size:16px; color:black; font-weight:bold;">
+      <br><br>
+     <form name="toggledmk" method="post" enctype="text/plain">
+         <input type="checkbox" unchecked id="dmktog" onchange="javaScript:optdmrk();">Show Possibilities<br>
+      </form>
+      </span>
+      <span>
+        <input type="button" value="Print This Puzzle" onClick="window.print()">
+        <br><br>
+      </span>
+      <span id="msg2" style="font-family:sans-serif; font-size:16px; color:#4080ff; font-weight:bold;">
+        &nbsp;
+      </span>
+      <span id="msg3" style="font-family:sans-serif; font-size:16px; color:red; font-weight:bold;">
+        <br><br>#### - Means&nbsp;No<br>Possibilities
+      </span>
+  </div>
+
+<!-- Rectangle for highlighting a cell -->
+  <svg  id="rhl" style="position: absolute; width: 50; height: 50; visibility: hidden">
+    <rect style="width:50; height:50; fill-opacity:0; stroke-width:14; stroke:#4080ff">
+    </rect>
+  </svg>
+
+</body>
+
+</html>

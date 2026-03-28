@@ -1,0 +1,308 @@
+<html>
+
+<head>
+
+  <title>JuliaSetCycle</title>
+<!-- This is MandelBob modified to display Julia Sets in an animated cycle-->
+
+  <canvas id="myCanvas" width="600" height="600" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="highc()">
+
+<script>
+
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 5;
+  var canvas = document.getElementById('myCanvas');
+  canvas.style.left = xbase;
+  canvas.style.top = ytop;
+  var context = canvas.getContext('2d');
+  var mandel = context.createImageData(600, 600);
+  //Colors for display
+  var nreds = new Array();
+  var ngrns = new Array();
+  var nblus = new Array();
+  var ivals = new Array();
+  var ivix = 0;
+  //Image generation parameters
+  var iter = 300;
+  var creal = 0.0;
+  var maxreal = 1.999;
+  var minreal = -1.999;
+  var cimag = 0.0;
+  var maximag = 1.999;
+  var minimag = -1.999;
+  var delay = 20;
+  var cycle = false;
+  var variance = 0;
+  var incr = 0;
+  var inci = 0;
+  var mult = 100000;
+  var mix = 0;
+
+  //Begin functions
+
+  function stepdisp() {
+    //Control the animated image cycle
+    if (!cycle) return;
+    //Call the image generator function
+    genimage();
+    //Get set up for next image
+    setdi();
+    var pcreal = creal;
+    creal = creal + incr;
+    if (creal>maxreal) {
+      creal = maxreal;
+      incr = -incr;
+    }
+    if (creal<minreal) {
+      creal= minreal;
+      incr = -incr;
+    }
+    creal = Math.round(creal*mult)/mult;
+    var pcimag = cimag;
+    cimag = cimag + inci;
+    if (cimag>maximag) {
+      cimag = maximag;
+      inci = -inci;
+    }
+    if (cimag<minimag) {
+      cimag= minimag;
+      inci = -inci;
+    }
+    cimag = Math.round(cimag*mult)/mult;
+    //After a delay, call ourself for the next image
+    if (cycle) var timer = setTimeout("stepdisp()",delay);
+    document.getElementById("crinp").value = pcreal;
+    document.getElementById("ciinp").value = pcimag;
+  }
+
+  function mstepdisp(dir) {
+  //Put out one image
+    setdi();
+    cycle = false;
+    creal = document.getElementById("crinp").value;
+    creal = creal*1.0;
+    cimag = document.getElementById("ciinp").value;
+    cimag = cimag*1.0;
+    //forward one step
+    if (dir == "F") {
+      creal = creal + Math.abs(incr);
+      cimag = cimag + Math.abs(inci);
+    }
+    //backward one step
+    if (dir == "B") {
+      creal = creal - Math.abs(incr);
+      cimag = cimag - Math.abs(inci);
+    }
+    //Or else use the value as is
+    if (creal > maxreal) creal = maxreal;
+    if (creal < minreal) creal = minreal;
+    if (cimag > maximag) cimag = maximag;
+    if (cimag < minimag) cimag = minimag;
+    creal = Math.round(creal*mult)/mult;
+    document.getElementById("crinp").value = creal;
+    cimag = Math.round(cimag*mult)/mult;
+    document.getElementById("ciinp").value = cimag;
+    genimage();
+  }
+
+  function setdi() {
+    //Set delay & increment values based on variance of Julia iteration data
+    var tincr = incr;
+    var tinci = inci;
+    incr = 0.013;
+    inci = 0.009;
+    delay = 20;
+    if (variance > 40) {
+      delay = 30;
+      incr = 0.004;
+      inci = 0.003;
+    }
+    if (variance > 100) {
+      delay = 40;
+      incr = 0.001;
+      inci = 0.001;
+    }
+    if (variance > 600) {
+      delay = 50;
+      incr = 0.0004;
+      inci = 0.0004;
+    }
+    if (variance > 1000) {
+      delay = 60;
+      incr = 0.0001;
+      inci = 0.0001;
+    }
+    if (tincr < 0) incr = -incr;
+    if (tinci < 0) inci = -inci;
+  }
+
+  function cyctoggle() {
+  //Start or stop animated cycle
+    if (cycle) {
+      cycle = false;
+      return;
+    }
+    cycle = true;
+    if (creal != document.getElementById("crinp").value) {
+      creal = document.getElementById("crinp").value;
+      cimag = document.getElementById("ciinp").value;
+    }
+    creal = creal*1.0;
+    cimag = cimag*1.0;
+    if (creal > maxreal) creal = maxreal;
+    if (creal < minreal) creal = minreal;
+    document.getElementById("crinp").value = creal;
+    creal = creal*1,0;
+    stepdisp();
+  }
+
+  //Generate an image, based on the real and imaginary constants 
+  function genimage() {
+    mix = 0;
+    ivix = 0;
+    var gcreal = document.getElementById("crinp").value;
+    var gcimag = document.getElementById("ciinp").value;
+    gcreal = creal*1.0;
+    gcimag = gcimag*1.0;
+    //Loop through the x,y range of the image
+    for(var y=599;y>-1;y--) {
+      for(var x=0;x<600;x++) {
+        var cx = x/150 - 2;
+        var cy = y/150 - 2;
+        //Test whether this point is in the set
+        for (var i=0;i<iter;i++) {
+          var xt=cx*cx-cy*cy+gcreal;
+          cy=2*cx*cy+gcimag;
+          cx=xt;
+          //Test if tending toward infinity
+          if ((cx*cx + cy*cy) > 4) break;
+        }
+        if (i == iter) {
+          //Reached max iterations
+          //Black pixel
+          mandel.data[mix]   = 0;
+          mandel.data[mix+1] = 0;
+          mandel.data[mix+2] = 0;
+          mandel.data[mix+3] = 255;
+          mix = mix + 4;
+        }
+        else {
+          //Escaped before reaching max iterations
+          //Colored pixel
+          //Get color values from palette
+          mandel.data[mix]   = nreds[i];
+          mandel.data[mix+1] = ngrns[i];
+          mandel.data[mix+2] = nblus[i];
+          mandel.data[mix+3] = 255;
+          mix = mix + 4;
+          if (i != 0 ) {
+           ivals[ivix] = i;
+           ivix++;
+          }
+        }
+      }
+    }
+    //Image is complete
+    //Write the image
+    context.putImageData(mandel, 0, 0);
+    //Calculate the variance of the iteration data 
+    var mean = 0;
+    var vari = 0;
+    ivix--;
+    //First, calculate the mean value
+    for (var m=0; m<ivix; m++) mean = mean + ivals[m];
+    mean = mean/(ivix+1);
+    //Next, calculate the square of each value's difference from the mean
+    for (var n=0; n<ivix; n++) ivals[n] = (ivals[n] - mean) * (ivals[n] - mean);
+    //Next, calculate the sum of the squared differenes
+    for (var p=0; p<ivix; p++) vari = vari + ivals[p];
+    //Then, get the variance
+    variance = vari/ivix;
+  }
+
+  function highc() {
+  //Set up high contrast color palette
+    var rv = 10;
+    var ri = 4;
+    var gv = 10;
+    var gi = 8;
+    var bv = 40;
+    var bi = 4;
+    for (var t=0; t<iter; t++) {
+      nreds[t] = rv;
+      nreds[t] = nreds[t]*255/100;
+      rv = rv + ri;
+      if ((rv>90) || (rv<10)) ri = -ri;
+      ngrns[t] = gv;
+      ngrns[t] = ngrns[t]*255/100;
+      gv = gv + gi;
+      if ((gv>90) || (gv<10)) gi = -gi;
+      nblus[t] = bv;
+      nblus[t] = nblus[t]*255/100;
+      bv = bv + bi;
+      if ((bv>90) || (bv<10)) bi = -bi;
+    }
+    nreds[0] = 255;
+    ngrns[0] = 255;
+    nblus[0] = 255;
+    //Set up starting Julia Set constants
+    setcons();
+    //Display initial image
+    mstepdisp('S');
+  }
+
+  function setcons() {
+  //Set the Julia constants to random values
+    creal = (Math.random()*4.0) - 2.0;
+    creal = Math.round(creal*mult)/mult;
+    document.getElementById("crinp").value = creal;
+    cimag = (Math.random()*4.0) - 2.0;
+    cimag = Math.round(cimag*mult)/mult;
+    document.getElementById("ciinp").value = cimag; 
+  }  
+     
+</script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="0" width="210">
+    <tr>
+      <td height="320" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 580; width: 170">
+      <span style="font-family: sans-serif; font-size: 14px; color: #000000; font-weight: bold;">
+      <span style="font-size: 18px;">JuliaSetCycle</span><br><br>
+      <form name="conscontrol" method="post" enctype="text/plain">
+        Constants, -2 to +2<br>
+          &nbsp;&nbsp;Real<input type="number" id="crinp" value="0.0"><br>
+          &nbsp;&nbsp;Imaginary<input type="number" id="ciinp" value="0.0">
+      </form>
+      <form name="setconsts" action="javaScript:setcons();" method="post" enctype="text/plain">
+         <input type="submit" value="Reset Constants, Random"><br>
+      </form>
+      <form name="togglecyc" action="javaScript:cyctoggle();" method="post" enctype="text/plain">
+         <input type="submit" value="Display Cycle Start/Stop"><br>
+      </form>
+      <form name="stepscontrol" action="javaScript:mstepdisp('S');" method="post" enctype="text/plain">  
+         <input type="submit" value="Single Image">
+      </form>
+      <form name="stepfcontrol" action="javaScript:mstepdisp('F');" method="post" enctype="text/plain">  
+         <input type="submit" value="Step Forward">
+      </form>
+      <form name="stepbcontrol" action="javaScript:mstepdisp('B');" method="post" enctype="text/plain">  
+         <input type="submit" value="Step Back">
+      </form>
+  </div>
+
+</body>
+
+</html>

@@ -1,0 +1,752 @@
+<html>
+
+<head>
+  <title>soundBUGS</title>
+  <canvas id="myCanvas" width="750" height="600" style="position: absolute"></canvas>
+</head>
+
+<body onload="disfld()" >
+
+
+<script>
+
+var canv = document.getElementById('myCanvas');
+canv.style.left = 0;
+canv.style.top = 0;
+var context = canv.getContext('2d');
+myCanvas.addEventListener('click', getmouse, false);
+
+var AudioContext = window.AudioContext || window.webkitAudioContext;
+var audctx = 0;
+var osc1 = 0;
+var osc2 = 0;
+var osc3 = 0;
+var osc4 = 0;
+var gan1 = 0;
+var gan2 = 0;
+var gan3 = 0;
+var gan4 = 0;
+
+var rmax = 250;
+var xmarg = 200;
+ymarg = 20
+var cenx = xmarg + rmax;
+var ceny = ymarg + rmax;
+
+var nbugs = 10;
+var toid = 0;
+var motion = false;
+var gather = false;
+var scatter = false;
+var flock = false;
+var pie = Math.PI;
+var twopie = 2.0*Math.PI;
+var mouse = 0;
+var abad = false;
+var maction = false;
+var mousex = 0; var mousey = 0;
+var tx = 0; var ty = 0;
+var speed = 15;
+var delay = 15;
+var newx = 0.0;
+var newy = 0.0;
+var bugsize = 10;
+var xoffst = -6; var yoffst = 6;
+var maxdist = 1;
+var ddran = 0.01; var flockdran = 0.01;
+//x positions of bugs
+var xpos = new Array();
+//y positions of bugs
+var ypos = new Array();
+//Polar coords of bugs
+var brho = new Array();
+var btheta = new Array();
+//Directions of bugs, zero is to the right, parallel to x axis
+var dir = new Array();
+var bn = new Array();
+var gdir = 0.0;
+var flip = 0;
+//Whether or not each bug is aware of food
+var food = new Array();
+//Whether or not each bug has eaten
+var eaten = new Array();
+var clrix = new Array();
+for (n=0; n<25; n++) {
+  xpos[n] = 0.0;
+  ypos[n] = 0.0;
+  brho[n] = 0.0;
+  btheta[n] = 0.0;
+  dir[n] = 0.0;
+  bn[n] = 0;
+  food[n] = false;
+  eaten[n] = false;
+  clrix[n] = n;
+}
+var clrs = ["#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+            "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+	    "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+	    "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+  	    "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040"];
+		  
+
+//Begin Javascript functions
+
+//Perform start/restart 
+function optstart() {
+  //Housekeep variables
+  housekeep();
+  //reset the control form
+  bc.reset();
+  bc2.reset();
+  //Cancel any previous running
+  if (toid != 0) clearTimeout(toid);
+  if (st.optst.selectedIndex == 0) return;
+  //Set number of bugs
+  if (st.optst.selectedIndex == 1) {nbugs=10;}
+  else {nbugs=25;}
+  //Display the field
+  disfld();
+  //Put the bugs on the screen
+  ranset();
+  //Start the bug control process
+  timer();
+}
+
+//Move a bug
+function mov(n,x,y) {
+  var bnam = eval("b"+n);
+  xpos[n] = x;
+  ypos[n] = y;
+  brho[n] = xyrho(x,y);
+  btheta[n] = xytheta(x,y);
+  var bugg = document.getElementById('b'+n);
+  bugg.style.left = cenx + x + xoffst;
+  bugg.style.top = ceny -y - yoffst;
+  bugg.style.visibility = "visible" ;
+}
+
+//Set the bugs in starting positions
+function ranset() {
+  var xp = -80;
+  var xs = -80;
+  var yp = 80;
+  var incr = 75;
+  var perrow = 3;
+  var t1 = 0;
+  var t2 = 0;
+  if (nbugs == 25) {
+    xp = -156;
+    xs = -156;
+    yp = 156;
+    incr = 75;
+    perrow = 5;
+  }
+  //Set up a list of the bug numbers
+  for (n=0; n<nbugs; n++) {
+    bn[n] = n;
+  }
+  //Randomize the list
+  for (n=0; n<nbugs; n++) {
+    t1 =  Math.floor(Math.random()*nbugs);
+    t2 = bn[t1];
+    bn[t1] = bn[n];
+    bn[n] = t2;
+  }
+  var thisrow = 0;
+  for (n=0; n<nbugs; n++) {
+    //Move the bug
+    mov(bn[n],xp,yp);
+    //Set initial direction of movement
+    dir[bn[n]] = Math.random()*twopie;
+    //Display it
+    var bnam = eval("b"+bn[n]);
+    bnam.style.visibility = "visible";
+    xp = xp + incr;
+    thisrow ++;
+    if (thisrow >= perrow) {
+      xp = xs;
+      yp = yp - incr;
+      thisrow = 0;
+    }
+  }
+}
+
+
+//Control timing of bug control
+function timer() {
+  control();
+  toid = setTimeout("timer()",delay) ;
+}  
+
+
+//Control bug movement
+function control() {
+  // If motion isn't turned on, do nothing
+  if (!motion) {
+    return;
+  }
+  var gdst = 0.0;
+  //Check each bug
+  for (b=0; b<nbugs; b++) {
+    gdir = dir[b];
+    if (gather) {
+    //Find average position of all the bugs
+      var xav = xpos[b];
+      var yav = ypos[b];
+      for (n=0; n<nbugs; n++) {
+        // Don't include this bug
+        if (n == b) continue ;
+        xav = xav + xpos[n] ;
+        yav = yav + ypos[n] ;
+      }
+      xav = xav/nbugs ;
+      yav = yav/nbugs ;
+      //Get direction to avg position
+      gdir = getdir(xpos[b],ypos[b],xav,yav) ;
+      //Get distance to avg position
+      gdst = getdst(xpos[b],ypos[b],xav,yav) ;
+    }
+    if (scatter) {
+     //Find position of the closest bug
+      var xav = 0;
+      var yav = 0;
+      var tdst = 0;
+      gdst = 10000.0;
+      for (n=0; n<nbugs; n++) {
+        // Don't include this bug
+        if (n == b) continue ;
+        tdst = getdst(xpos[b],ypos[b],xpos[n],ypos[n]) ;
+        if (tdst < gdst) {
+          gdst = tdst;
+          xav = xpos[n];
+          yav = ypos[n];
+        }
+      }
+      //Get direction to closest bug
+      gdir = getdir(xpos[b],ypos[b],xav,yav) ;
+      //Turn away from it
+      gdir = (gdir + pie) % twopie ;
+    }
+    if (flock) {
+      //Find the closest bug
+      var tdst = 0.0;
+      gdst = 10000.0;
+      var newdir = dir[b];
+      var savn = 0;
+      for (n=0; n<nbugs; n++) {
+        // Don't include this bug
+        if (n == b) continue ;
+        tdst = getdst(xpos[b],ypos[b],xpos[n],ypos[n]) ;
+        if (tdst < gdst) {
+          gdst = tdst;
+          newdir = dir[n];
+          savn = n;
+        }
+      }
+      //Go same direction as closest bug
+      gdir = newdir;
+    }
+    if (maction && (mouse < 3)) {
+      //Mouse action
+      //Get direction to mouse
+      gdir = getdir(xpos[b],ypos[b],mousex,mousey) ;
+      //Get distance to mouse
+      if (mouse == 2) {
+        //Mouse repel - reverse direction to point away from mouse
+        gdir = (gdir + pie) % twopie;
+      }
+    }
+    if (abad && (b != 0)) {
+      gdir = (getdir(xpos[b],ypos[b],xpos[0],ypos[0]) + pie) % twopie;
+      gdst = getdst(xpos[b],ypos[b],xpos[0],ypos[0]);
+    }
+    dir[b] = gdir ;
+    //Check if bug should be headed toward food
+    if (food[b] && !eaten[b]) {
+      var bnam = eval("b"+b);
+      bnam.style.backgroundColor = "#ffffff";
+      dir[b] = getdir(xpos[b],ypos[b],mousex,mousey) ;      
+    }
+    //Add some randomness to the direction
+    var ran = ddran ;
+    if (flock) ran = flockdran ;
+    flip = Math.floor(Math.random()*2);
+    if (flip == 0) {
+      dir[b] = (dir[b] + twopie*ran) % twopie;
+    }
+    else {
+      dir[b] = dir[b] - twopie*ran;
+      if (dir[b] < 0.0) dir[b] = twopie + dir[b]; 
+    }
+    //Get a random distance
+    var d = Math.random()*maxdist;
+    //Compute new x value
+    newx = xpos[b] + d*Math.cos(dir[b]);
+    //Compute new y value
+    newy = ypos[b] + d*Math.sin(dir[b]);
+    //Check if food found
+    if ((mouse == 3) && maction) {
+      if ((Math.abs(newx - mousex) < bugsize) && (Math.abs(newy - mousey) < bugsize)) {
+        food[b] = true;
+        eaten[b] = true;
+        var bnam = eval("b"+b);
+        bnam.style.textDecoration = "underline";
+        bnam.style.backgroundColor = "transparent";
+        //Check if all bugs have eaten
+        var all = true;
+        for (n=0; n<nbugs; n++) {
+          if (!eaten[n]) all = false ;
+        }
+        if (all) {
+          for (n=0; n<nbugs; n++) {
+            var bnam = eval("b"+n) ;      
+            //turn all the bugs blue
+            bnam.style.color = "#000000";
+          }
+        }
+      }
+    }
+    //Check for collision with another bug
+      for (n=0; n<nbugs; n++) {
+      //Don't check bug against itself
+      if (n == b) continue ;
+      if (getdst(newx,newy,xpos[n],ypos[n]) < bugsize) {
+        //Collision - Change direction
+        dir[b] = (getdir(xpos[b],ypos[b],xpos[n],ypos[n]) + pie) % twopie;
+        dir[n] = (dir[b] + pie) % twopie;
+        if (flock) dir[b] = dir[n];
+        //Check if knowledge of food should be passed along
+        if (eaten[b] || eaten[n]) {
+          //Tell the other bug there is food
+          food[b] = true;
+          food[n] = true;
+        }
+        if (flock) {
+          if (n < b) {
+            xpos[b] = (brho[b]-2.0)*Math.cos(btheta[b]);
+            ypos[b] = (brho[b]-2.0)*Math.sin(btheta[b]);
+          }
+        }
+        var d = Math.random()*maxdist;
+        //Compute new x value
+        newx = xpos[b] + d*Math.cos(dir[b]);
+        //Compute new y value
+        newy = ypos[b] + d*Math.sin(dir[b]);
+      }
+    }
+    //Check for collision with the wall
+    if (getdst(newx,newy,0.0,0.0) > (rmax-bugsize)) {
+      var noten = b % 4;
+      if (noten == 0) note1();
+      if (noten == 1) note2();
+      if (noten == 2) note3();
+      if (noten == 3) note4();
+
+      //Collision - reverse direction
+      dir[b]= (dir[b] + pie) % twopie;
+      var d = Math.random()*maxdist;
+      //Compute new x value
+      newx = xpos[b] + d*Math.cos(dir[b]);
+      //Compute new y value
+      newy = ypos[b] + d*Math.sin(dir[b]);
+    }
+    //Move the bug
+    mov(b,newx,newy) ; 
+  }
+}
+
+//Calculate direction from one point to another
+function getdir(bx,by,gx,gy) {
+  var cd = Math.atan2((gy-by),(gx-bx));
+  if (cd < 0.0) cd = twopie + cd;
+  cd = cd % twopie;
+  return cd;
+}
+
+//Calculate rho from x,y
+function xyrho(xx,yy) {
+  return Math.sqrt(xx*xx + yy*yy);
+}
+
+//Calculate theta from x,y
+function xytheta(xx,yy) {
+  return Math.atan2(yy,xx);
+}
+
+//Calculate distance between two points
+function getdst(x1,y1,x2,y2) {
+  var xdif = x1-x2;
+  var ydif = y1-y2;
+  return Math.sqrt(xdif*xdif + ydif*ydif) ;
+}
+
+//Display the field
+function disfld() {
+  context.beginPath();
+  context.arc(cenx, ceny, rmax, 0, twopie, false);
+  context.fillStyle = '#c0c0c0';
+  context.fill();
+}
+
+//Set motion option
+function optmotion() {
+  motion = false;
+  if (bc.optmot.selectedIndex == 0) {
+    return;
+  }
+  speed = document.getElementById("speedinp").value * 1.0;
+  speed = Math.floor(speed);
+  if (speed < 1) speed = 1;
+  if (speed > 30) speed = 30;
+  document.getElementById("speedinp").value = speed;
+  delay = 30 - speed;
+  motion = true;
+  audctx = new AudioContext();
+}
+
+function note1() {
+  osc1 = audctx.createOscillator();
+  osc1.type = "sine";
+  gan1 = audctx.createGain();
+  osc1.connect(gan1);
+  osc1.frequency.value = 100.0;
+//261.6
+  gan1.connect(audctx.destination);
+  gan1.gain.value = 5;
+  gan1.gain.exponentialRampToValueAtTime(0.0000001, audctx.currentTime + 1);
+  osc1.frequency.linearRampToValueAtTime(1000, audctx.currentTime + 1);
+  osc1.start();
+  osc1.stop(audctx.currentTime + 1);
+}
+
+function note2() {
+  osc2 = audctx.createOscillator();
+  osc2.type = "sine";
+  gan2 = audctx.createGain();
+  osc2.connect(gan2);
+  osc2.frequency.value = 120.0;
+//329.6
+  gan2.connect(audctx.destination);
+  gan2.gain.value = 5;
+  gan2.gain.exponentialRampToValueAtTime(0.0000001, audctx.currentTime + 1);
+  osc2.frequency.linearRampToValueAtTime(1000, audctx.currentTime + 1);
+  osc2.start();
+  osc2.stop(audctx.currentTime + 1);
+}
+
+function note3() {
+  osc3 = audctx.createOscillator();
+  osc3.type = "sine";
+  gan3 = audctx.createGain();
+  osc3.connect(gan3);
+  osc3.frequency.value = 140.0;
+//392.0
+  gan3.connect(audctx.destination);
+  gan3.gain.value = 5;
+  gan3.gain.exponentialRampToValueAtTime(0.0000001, audctx.currentTime + 1);
+  osc3.frequency.linearRampToValueAtTime(1000, audctx.currentTime + 1);
+  osc3.start();
+  osc3.stop(audctx.currentTime + 1);
+}
+
+function note4() {
+  osc4 = audctx.createOscillator();
+  osc4.type = "sine";
+  gan4 = audctx.createGain();
+  osc4.connect(gan4);
+  osc4.frequency.value = 160.0;
+//523.3
+  gan4.connect(audctx.destination);
+  gan4.gain.value = 5;
+  gan4.gain.exponentialRampToValueAtTime(0.0000001, audctx.currentTime + 1);
+  osc4.frequency.linearRampToValueAtTime(1000, audctx.currentTime + 1);
+  osc4.start();
+  osc4.stop(audctx.currentTime + 1);
+}
+
+//Set gather/scatter/flock option
+function optgather() {
+  gather = false;
+  scatter = false;
+  flock = false;
+  for (n=0; n<25; n++) {
+    var bnam = eval("b"+n);
+    bnam.style.color = clrs[n];
+	clrix[n] = n;
+  }
+  if (bc2.optgat.selectedIndex == 1) gather = true;
+  if (bc2.optgat.selectedIndex == 2) scatter = true;
+  if (bc2.optgat.selectedIndex == 3) flock = true;
+}
+
+//set mouse option
+function optmouse() {
+  mouse = 0;
+  gcirc.style.visibility = "hidden";
+  rcirc.style.visibility = "hidden";
+  maction = false;
+  for (n=0; n<25; n++) {
+    var bnam = eval("b"+n);
+    bnam.style.textDecoration = "none";
+    bnam.style.backgroundColor = "transparent";
+    bnam.style.color = clrs[n];
+    clrix[n] = n;
+    food[n] = false;
+    eaten[n] = false;
+  }
+  if (bc2.optmou.selectedIndex == 1) mouse = 1;
+  if (bc2.optmou.selectedIndex == 2) mouse = 2;
+  if (bc2.optmou.selectedIndex == 3) mouse = 3;
+}
+
+//Set abad option
+function optabad() {
+  abad = false;
+  if (bc2.optabd.selectedIndex == 0) return;
+  abad = true;
+}
+
+//Get mouse action
+function getmouse(ev) {
+  // If not doing mouse actions, ignore
+  if (mouse == 0) return ;
+    //Set location params 
+    mousex = ev.clientX - cenx ;
+    mousey =  ceny - ev.clientY ;
+  // If out of bounds, ignore
+  if (xyrho(mousex,mousey) > (rmax - 1)) return ;
+  if (mouse == 2) {
+    //Repel
+    rcirc.style.left = eval(ev.clientX-6) + "px";
+    rcirc.style.top = eval(ev.clientY-6) + "px";
+    rcirc.style.visibility = "visible";
+    gcirc.style.visibility = "hidden";
+  }
+  else {
+    //Attract or Tell of Food
+
+    gcirc.style.left = eval(ev.clientX-6) + "px";
+    gcirc.style.top = eval(ev.clientY-6) + "px";
+    gcirc.style.visibility = "visible";
+    rcirc.style.visibility = "hidden";
+  }
+  maction = true;
+}
+
+
+function housekeep() {
+  motion = false;
+  gather = false;
+  scatter = false;
+  flock= false;
+  mouse = 0;
+  abad = false;
+  maction = false;
+  //Hide everything for now
+  for (n=0; n<25; n++) {
+  xpos[n] = 0; ypos[n] = 0;
+  brho[n] = 0.0; btheta[n] = 0.0;
+  var bnam = eval("b"+n);
+  bnam.style.visibility = "hidden";
+  bnam.style.textDecoration = "none";
+  bnam.style.backgroundColor = "transparent";
+  bnam.style.color = clrs[n];
+  clrix[n] = n;
+  food[n] = false;
+  eaten[n] = false;
+  }
+  gcirc.style.visibility = "hidden";
+  rcirc.style.visibility = "hidden";
+}
+
+//End functions
+
+</script>
+
+<!-- Space for control form -->
+<div style="position: absolute; left: 10; top: 10;">
+<table border="2" width="170">
+  <tr>
+    <td height="500" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+  </tr>
+</table>
+</div>
+
+<!-- Control form -->
+<div style="position: absolute; left: 24; top: 20; height: 480; width: 170">
+  <span style="font-family: sans-serif; font-size: 12px; color: #000000; font-weight: bold;">
+      BUG CONTROL<br><br>
+
+      <form name="st">
+        Start/Restart<br>&nbsp;&nbsp;
+        <select name="optst" size="3" onchange="javascript:optstart()">
+          <option value="0">Reset
+          <option value="1">10 Bugs
+          <option value="2">25 Bugs
+        </select>
+      </form>
+
+      <form name="bc">
+        Motion<br>&nbsp;&nbsp;
+        <select name="optmot" size="2" onchange="javascript:optmotion()">
+          <option selected value="0">Off
+          <option value="1">On
+        </select>
+      </form>
+
+      <form name="speedcontrol" method="post" enctype="text/plain">
+        Speed, 1-30
+          <br>&nbsp;&nbsp;<input type="number" id="speedinp" value="15" size="6" step="1" min="1" max="30">
+      </form><br>
+
+      <form name="bc2">
+        Gather/Scatter/Flock<br>&nbsp;&nbsp;
+        <select name="optgat" size="4" onchange="javascript:optgather()">
+          <option selected value="0">Off
+          <option value="1">Gather
+          <option value="2">Scatter
+          <option value="3">Flock
+        </select><br>
+        Mouse<br>&nbsp;&nbsp;
+        <select name="optmou" size="4" onchange="javascript:optmouse()">
+          <option selected value="0">Off
+          <option value="1">Attract
+          <option value="2">Repel
+          <option value="3">Find Food
+        </select><br>
+        A Bad<br>&nbsp;&nbsp;
+        <select name="optabd" size="2" onchange="javascript:optabad()">
+          <option selected value="0">Off
+          <option value="1">On
+        </select><br>
+    </form>
+
+  </span>
+
+</div>
+
+<!-- Put the bugs into a table as a holding place, initially hidden -->
+<table>
+  <tr>
+    <td>
+      <div id=b0 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      A</div>
+      <div id=b1 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      B</div>
+      <div id=b2 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      C</div>
+      <div id=b3 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      D</div>
+      <div id=b4 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      E</div>
+      <div id=b5 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      F</div>
+      <div id=b6 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      G</div>
+      <div id=b7 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      H</div>
+      <div id=b8 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      J</div>
+      <div id=b9 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      K</div>
+      <div id=b10 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      L</div>
+      <div id=b11 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      M</div>
+      <div id=b12 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      N</div>
+      <div id=b13 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      O</div>
+      <div id=b14 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      P</div>
+      <div id=b15 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      Q</div>
+      <div id=b16 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      R</div>
+      <div id=b17 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      S</div>
+      <div id=b18 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      T</div>
+      <div id=b19 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      U</div>
+      <div id=b20 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      V</div>
+      <div id=b21 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      W</div>
+      <div id=b22 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      X</div>
+      <div id=b23 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      Y</div>
+      <div id=b24 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      Z</div>
+    </td>
+  </tr>
+</table>
+
+<!-- Green and red circles for Attract and Repel -->
+<table>
+  <tr>
+    <td>
+      <div id=gcirc 
+        style="height: 12px; width: 12px; visibility: hidden; position: absolute;">
+        <img src="green.gif" height="12" width="12"></div>
+      <div id=rcirc 
+        style="height: 12px; width: 12px; visibility: hidden; position: absolute;">
+        <img src="red.gif" height="12" width="12"></div>
+    </td>
+  </tr>
+</table>
+
+</body>
+
+</html>

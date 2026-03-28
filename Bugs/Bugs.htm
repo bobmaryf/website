@@ -1,0 +1,572 @@
+<html>
+
+<head>
+  <title>Bugs</title>
+  <canvas id="myCanvas" width="750" height="600" style="position: absolute"></canvas>
+</head>
+
+<body onload="disfld()" >
+
+
+<script>
+
+  var canv = document.getElementById('myCanvas');
+  canv.style.left = 0;
+  canv.style.top = 0;
+  var context = canv.getContext('2d');
+  myCanvas.addEventListener('mousemove', getmouse, false);
+
+var rmax = 250;
+var xmarg = 200;
+ymarg = 20
+var cenx = xmarg + rmax;
+var ceny = ymarg + rmax;
+var nbugs = 10;
+var toid = 0;
+var motion = false;
+var gather = false;
+var scatter = false;
+var flock = false;
+var pie = Math.PI;
+var twopie = 2.0*Math.PI;
+var mouse = 0;
+var abad = false;
+var nearmin1 = 200.0;
+var nearmin2 = 50.0;
+var maction = false;
+var mousex = 0; var mousey = 0;
+var tx = 0; var ty = 0;
+var speed = 15;
+var delay = 10;
+var newx = 0.0;
+var newy = 0.0;
+var bugsize = 12;
+var xoffst = -6; var yoffst = 6;
+var maxdist = 1.0;
+var fldist = bugsize*2.5;
+var ddran = 0.01;
+var flockdran = 0.01;
+//x positions of bugs
+var xpos = new Array();
+//y positions of bugs
+var ypos = new Array();
+//Polar coords of bugs
+var brho = new Array();
+var btheta = new Array();
+//Directions of bugs, zero is to the right, parallel to x axis
+var dir = new Array();
+var bn = new Array();
+var gdir = 0.0;
+var flip = 0;
+var clrix = new Array();
+for (n=0; n<25; n++) {
+  xpos[n] = 0.0;
+  ypos[n] = 0.0;
+  brho[n] = 0.0;
+  btheta[n] = 0.0;
+  dir[n] = 0.0;
+  bn[n] = 0;
+  clrix[n] = n;
+}
+var clrs = ["#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+            "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+	    "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+	    "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040",
+  	    "#ff0000", "#00c000", "#0000ff", "#ff00ff", "#404040"];
+		  
+
+//Begin Javascript functions
+
+//Perform start/restart 
+function optstart() {
+  //Housekeep variables
+  housekeep();
+  //reset the control forms
+  bc.reset();
+  bc2.reset();
+  bc3.reset();
+  bc4.reset();
+  //Cancel any previous running
+  if (toid != 0) clearTimeout(toid);
+  if (st.optst.selectedIndex == 0) return;
+  //Set number of bugs
+  if (st.optst.selectedIndex == 1) nbugs=10;
+  else nbugs=25;
+  //Display the field
+  disfld();
+  //Put the bugs on the screen
+  ranset();
+  //Start the bug control process
+  timer();
+}
+
+//Move a bug
+function mov(n,x,y) {
+  var bnam = eval("b"+n);
+  xpos[n] = x;
+  ypos[n] = y;
+  brho[n] = xyrho(x,y);
+  btheta[n] = xytheta(x,y);
+  var bugg = document.getElementById('b'+n);
+  bugg.style.left = cenx + x + xoffst;
+  bugg.style.top = ceny - y - yoffst;
+  bugg.style.visibility = "visible" ;
+}
+
+//Set the bugs in starting positions
+function ranset() {
+  //Set up a list of the bug numbers
+  for (n=0; n<nbugs; n++) {
+    bn[n] = n;
+  }
+  var xtheta = Math.random()*twopie;
+  var dtheta = twopie/nbugs;
+  for (n=0; n<nbugs; n++) {
+    //Move the bug
+    var xrho = Math.random()*rmax*0.7 + rmax*0.2;
+    xtheta = xtheta+dtheta;
+    if (xtheta > twopie) xtheta = xtheta-twopie;
+    var xp = xrho * Math.cos(xtheta);
+    var yp = xrho * Math.sin(xtheta);
+    mov(bn[n],xp,yp);
+    //Set initial direction of movement
+    dir[bn[n]] = Math.random()*twopie;
+    //Display it
+    var bnam = eval("b"+bn[n]);
+    bnam.style.visibility = "visible";
+  }
+}
+
+//Set timing of bug control
+function timer() {
+  optmotion();
+  control();
+  toid = setTimeout("timer()",delay) ;
+}  
+
+//Control bug movement
+function control() {
+  // If motion isn't turned on, do nothing
+  if (!motion) return;
+  var gdst = 0.0;
+  //Check each bug's situation re the various options
+  for (b=0; b<nbugs; b++) {
+    gdir = dir[b];
+    if (gather) {
+    //Find average position of all the bugs
+      var xav = xpos[b];
+      var yav = ypos[b];
+      for (n=0; n<nbugs; n++) {
+        // Don't include this bug
+        if (n == b) continue ;
+        xav = xav + xpos[n] ;
+        yav = yav + ypos[n] ;
+      }
+      xav = xav/nbugs ;
+      yav = yav/nbugs ;
+      //Get direction to avg position
+      gdir = getdir(xpos[b],ypos[b],xav,yav) ;
+      //Get distance to avg position
+      gdst = getdst(xpos[b],ypos[b],xav,yav) ;
+    }
+    if (scatter) {
+     //Find position of the closest bug
+      var xav = 0;
+      var yav = 0;
+      var tdst = 0;
+      gdst = 10000.0;
+      for (n=0; n<nbugs; n++) {
+        // Don't include this bug
+        if (n == b) continue ;
+        tdst = getdst(xpos[b],ypos[b],xpos[n],ypos[n]) ;
+        if (tdst < gdst) {
+          gdst = tdst;
+          xav = xpos[n];
+          yav = ypos[n];
+        }
+      }
+      //Get direction to closest bug
+      gdir = getdir(xpos[b],ypos[b],xav,yav) ;
+      //Turn away from it
+      gdir = (gdir + pie) % twopie ;
+    }
+    if (flock) {
+      //Find the closest bug
+      var tdst = 0.0;
+      gdst = 10000.0;
+      var savn = 0;
+      for (n=0; n<nbugs; n++) {
+        // Don't include this bug
+        if (n == b) continue ;
+        tdst = getdst(xpos[b],ypos[b],xpos[n],ypos[n]) ;
+        if (tdst < gdst) {
+          gdst = tdst;
+          savn = n;
+        }
+      }
+      //Go toward closest bug or go in same direction if already close enough
+      if (gdst > fldist) gdir = getdir(xpos[b],ypos[b],xpos[savn],ypos[savn]) ;
+      else gdir = dir[savn];
+    }
+    //Mouse Attract
+    if (maction && (mouse == 1)) gdir = getdir(xpos[b],ypos[b],mousex,mousey) ;
+    //Mouse Repel
+    if (maction && (mouse == 2)) {
+      gdst = getdst(xpos[b],ypos[b],mousex,mousey);
+      if (gdst < nearmin1) gdir = (getdir(xpos[b],ypos[b],mousex,mousey) + pie) % twopie;
+      if (gdst < nearmin2) {
+        if ((brho[b]+nearmin2) > rmax) gdir = getdir(xpos[b],ypos[b],0.0,0.0);
+      }
+    }
+    // Abad action - stay away from bug A    
+    if (abad && (b != 0)) {
+      gdst = getdst(xpos[b],ypos[b],xpos[0],ypos[0]);
+      if (gdst < nearmin1) gdir = (getdir(xpos[b],ypos[b],xpos[0],ypos[0]) + pie) % twopie;
+      if (gdst < nearmin2) {
+        if ((brho[b]+nearmin2) > rmax) gdir = getdir(xpos[b],ypos[b],0.0,0.0);
+      }
+    }
+    //All the options have been accounted for
+    dir[b] = gdir ;
+    //Add some randomness to the direction
+    var ran = ddran ;
+    if (flock) ran = flockdran ;
+    flip = Math.floor(Math.random()*2);
+    if (flip == 0) {
+      dir[b] = (dir[b] + twopie*ran) % twopie;
+    }
+    else {
+      dir[b] = dir[b] - twopie*ran;
+      if (dir[b] < 0.0) dir[b] = twopie + dir[b]; 
+    }
+    //Get a random distance
+    var d = Math.random()*maxdist;
+    //Compute new x value
+    newx = xpos[b] + d*Math.cos(dir[b]);
+    //Compute new y value
+    newy = ypos[b] + d*Math.sin(dir[b]);
+    //Check for collision with another bug
+      for (n=0; n<nbugs; n++) {
+      //Don't check bug against itself
+      if (n == b) continue ;
+      if (getdst(newx,newy,xpos[n],ypos[n]) < bugsize) {
+        //Collision - Change direction
+        dir[b] = (getdir(xpos[b],ypos[b],xpos[n],ypos[n]) + pie) % twopie;
+        var d = Math.random()*maxdist;
+        //Compute new x value
+        newx = xpos[b] + d*Math.cos(dir[b]);
+        //Compute new y value
+        newy = ypos[b] + d*Math.sin(dir[b]);
+        break;
+      }
+    }
+    //Check for collision with the wall
+    if (getdst(newx,newy,0.0,0.0) > (rmax-bugsize)) {
+      //Collision - change direction
+      dir[b]= (dir[b] + pie) % twopie;
+      var d = Math.random()*maxdist;
+      //Compute new x value
+      newx = xpos[b] + d*Math.cos(dir[b]);
+      //Compute new y value
+      newy = ypos[b] + d*Math.sin(dir[b]);
+    }
+    //Now we can move the bug to its next position
+    mov(b,newx,newy) ; 
+  }
+}
+
+//Calculate direction from one point to another
+function getdir(bx,by,gx,gy) {
+  var cd = Math.atan2((gy-by),(gx-bx));
+  if (cd < 0.0) cd = twopie + cd;
+  cd = cd % twopie;
+  return cd;
+}
+
+//Calculate rho from x,y
+function xyrho(xx,yy) {
+  return Math.sqrt(xx*xx + yy*yy);
+}
+
+//Calculate theta from x,y
+function xytheta(xx,yy) {
+  return Math.atan2(yy,xx);
+}
+
+//Calculate distance between two points
+function getdst(x1,y1,x2,y2) {
+  var xdif = x1-x2;
+  var ydif = y1-y2;
+  return Math.sqrt(xdif*xdif + ydif*ydif) ;
+}
+
+//Display the field
+function disfld() {
+  context.beginPath();
+  context.arc(cenx, ceny, rmax, 0, twopie, false);
+  context.fillStyle = '#c0c0c0';
+  context.fill();
+}
+
+//Set motion option
+function optmotion() {
+  motion = false;
+  if (bc.optmot.selectedIndex == 0) return;
+  speed = document.getElementById("speedinp").value * 1.0;
+  speed = Math.floor(speed);
+  if (speed < 1) speed = 1;
+  if (speed > 30) speed = 30;
+  document.getElementById("speedinp").value = speed;
+  delay = 30 - speed;
+  motion = true;
+}
+
+//Set gather/scatter/flock option
+function optgather() {
+  bc3.reset();
+  bc4.reset();
+  clropts();
+  if (bc2.optgat.selectedIndex == 1) gather = true;
+  if (bc2.optgat.selectedIndex == 2) scatter = true;
+  if (bc2.optgat.selectedIndex == 3) flock = true;
+}
+
+//set mouse option
+function optmouse() {
+  bc2.reset();
+  bc4.reset();
+  clropts();
+  if (bc3.optmou.selectedIndex == 1) mouse = 1;
+  if (bc3.optmou.selectedIndex == 2) mouse = 2;
+}
+
+//Set abad option
+function optabad() {
+  bc2.reset();
+  bc3.reset();
+  clropts();
+  if (bc4.optabd.selectedIndex == 0) return;
+  abad = true;
+}
+
+//Get mouse action
+function getmouse(ev) {
+  // If not doing mouse actions, ignore
+  maction = false;
+  if (mouse == 0) return ;
+  //Set location params 
+  var tmousex = ev.clientX - cenx ;
+  var tmousey =  ceny - ev.clientY ;
+  // If out of bounds, ignore
+  if (xyrho(tmousex,tmousey) > (rmax - 1)) return ;
+  mousex = tmousex;
+  mousey = tmousey;
+  maction = true;
+}
+
+//Clear options
+function clropts() {
+  gather = false;
+  scatter = false;
+  flock= false;
+  maction = false;
+  mouse = 0;
+  abad = false;
+}
+
+function housekeep() {
+  clropts();
+  motion = false;
+  //Hide everything for now
+  for (n=0; n<25; n++) {
+    xpos[n] = 0; ypos[n] = 0;
+    brho[n] = 0.0; btheta[n] = 0.0;
+    var bnam = eval("b"+n);
+    bnam.style.visibility = "hidden";
+    bnam.style.textDecoration = "none";
+    bnam.style.backgroundColor = "transparent";
+    bnam.style.color = clrs[n];
+    clrix[n] = n;
+  }
+}
+
+//End functions
+
+</script>
+
+<!-- Space for control form -->
+<div style="position: absolute; left: 10; top: 10;">
+<table border="0" width="184">
+  <tr>
+    <td height="516" width="184"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+  </tr>
+</table>
+</div>
+
+<!-- Control form -->
+<div style="position: absolute; left: 24; top: 20; height: 480; width: 184">
+  <span style="font-family: sans-serif; font-size: 16px; color: #000000; font-weight: bold;">
+      Bugs<br><br>
+
+      <form name="st">
+        Start/Restart<br>&nbsp;&nbsp;
+        <select name="optst" size="3" onchange="javascript:optstart()">
+          <option value="0">Reset
+          <option value="1">10 Bugs
+          <option value="2">25 Bugs
+        </select>
+      </form>
+
+      <form name="bc">
+        Motion<br>&nbsp;&nbsp;
+        <select name="optmot" size="2" onchange="javascript:optmotion()">
+          <option selected value="0">Off
+          <option value="1">On
+        </select>
+      </form>
+
+      <form name="speedcontrol" method="post" enctype="text/plain">
+        Speed, 1-30
+          <br>&nbsp;&nbsp;<input type="number" id="speedinp" value="15" size="6" step="1" min="1" max="30">
+      </form><br>
+
+      <form name="bc2">
+        Gather/Scatter/Flock<br>&nbsp;&nbsp;
+        <select name="optgat" size="4" onchange="javascript:optgather()">
+          <option selected value="0">Off
+          <option value="1">Gather
+          <option value="2">Scatter
+          <option value="3">Flock
+        </select>
+      </form>
+      <form name="bc3">
+        Mouse<br>&nbsp;&nbsp;
+        <select name="optmou" size="3" onchange="javascript:optmouse()">
+          <option selected value="0">Off
+          <option value="1">Attract
+          <option value="2">Repel
+        </select>
+      </form>
+      <form name="bc4"> 
+        A Bad<br>&nbsp;&nbsp;
+        <select name="optabd" size="2" onchange="javascript:optabad()">
+          <option selected value="0">Off
+          <option value="1">On
+        </select>
+      </form>
+
+  </span>
+
+</div>
+
+<!-- Put the bugs into a table as a holding place, initially hidden -->
+<table>
+  <tr>
+    <td>
+      <div id=b0 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      A</div>
+      <div id=b1 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      B</div>
+      <div id=b2 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      C</div>
+      <div id=b3 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      D</div>
+      <div id=b4 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      E</div>
+      <div id=b5 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      F</div>
+      <div id=b6 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      G</div>
+      <div id=b7 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      H</div>
+      <div id=b8 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      J</div>
+      <div id=b9 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      K</div>
+      <div id=b10 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      L</div>
+      <div id=b11 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      M</div>
+      <div id=b12 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      N</div>
+      <div id=b13 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      O</div>
+      <div id=b14 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      P</div>
+      <div id=b15 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      Q</div>
+      <div id=b16 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      R</div>
+      <div id=b17 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      S</div>
+      <div id=b18 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      T</div>
+      <div id=b19 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      U</div>
+      <div id=b20 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      V</div>
+      <div id=b21 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      W</div>
+      <div id=b22 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      X</div>
+      <div id=b23 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      Y</div>
+      <div id=b24 
+        style="visibility: hidden; font-family: sans-serif; font-size: 16px; color: #000000;
+          font-weight: bold; position: absolute;">
+      Z</div>
+    </td>
+  </tr>
+</table>
+
+</body>
+
+</html>

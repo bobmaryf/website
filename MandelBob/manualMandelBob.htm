@@ -1,0 +1,751 @@
+<html>
+<head>
+
+<title>MandelBob</title>
+<!-- MandelBob - A Mandelbrot image generator put together by Bob Fairbairn, -->
+<!-- a retired programmer who still likes to tinker around with computers.   -->
+
+  <canvas id="myCanvas" width="1100" height="600" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="startup()">
+
+  <script>
+
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 5;
+  var canv = document.getElementById('myCanvas');
+  canv.style.left = xbase;
+  canv.style.top = ytop;
+  var context = canv.getContext('2d');
+  var mandel = context.createImageData(600, 600);
+  myCanvas.addEventListener('click', getmouse, false);
+  //Color palette values
+  var reds = new Array();
+  var grns = new Array();
+  var blus = new Array();
+  //Parameters for setting up color palette
+  var redval = 0;
+  var grnval = 0;
+  var bluval = 0;
+  var redadd = 0;
+  var grnadd = 0;
+  var bluadd = 0;
+  var reddup = 0;
+  var grndup = 0;
+  var bludup = 0;
+  //Image generation parameters
+  var zoom = 1;
+  var iter = 1000;
+  var cmult = 0;
+  var centerx = 0;
+  var centery = 0;
+  var mousex = 0;
+  var mousey = 0;
+  var startcx = 0;
+  var startcy = 0;
+  var paldisp = false;
+  var plotit = false;
+  var xpos = 0;
+  var ypos = 0;
+  var plotx = 0;
+  var plotline = 0;
+  var plotval = 0;
+  var textmaxy = 505;
+  var black = false;
+  var cshift = 0;
+  var shfact = 0.0;
+  //Palette pointers for current image
+  var palval = new Array();
+  var palix = 0;
+  var cycle = false;
+  //Index into ImageData array mandel
+  var mix = 0;
+
+ //Begin functions
+
+  function startup() {
+   colors();
+   gencall();
+  }
+
+  function gencall() {
+    //Show "Generating" message
+    busy.style.visibility = "visible";
+    //Wait a bit so the message will display
+    //Then call the image generator function
+    var timer = setTimeout("genimage()",100);
+  }
+
+  //Generate an image, based on the x,y center position and zoom factor 
+  function genimage() {
+    mix = 0;
+    cycle = false;
+    context.clearRect(0, 0, canv.width, canv.height);
+    black = true;
+    palix = 0;
+    reddot.style.visibility = "hidden";
+    centerx = mousex;
+    centery = mousey;
+centerx = (document.getElementById("xinp").value * 1.0  * 150);
+centery = (document.getElementById("yinp").value * 1.0  * 150);
+
+    //Set location params scaled to the image
+//    mousex = centerx + (ev.clientX - xbase - 300)/zoom;
+    //Y value is reversed
+//    mousey = centery + (ybase + ytop - ev.clientY - 300)/zoom;
+    //Display the center coord values
+//    xcenter.textContent = mousex/150;
+//    ycenter.textContent = mousey/150;
+
+
+    zoom = document.getElementById("zoominp").value * 1.0;
+    iter = zoom + 100;
+    if (iter > 1000) iter = 1000;
+    cmult = 1;
+    var zoomf = 1.0/(150.0*zoom);
+    if (paldisp) {
+      //Display the color palette
+      dispclrs();
+      busy.style.visibility = "hidden";
+      return;
+    }
+    if (plotit) {
+      //Display iteration values of selected point
+      xpos = 5;
+      ypos = 12;
+      plotx = 0;
+      plotline = 0;
+    }
+    startcx = ((centerx*zoom)-300)*zoomf;
+    startcy = ((centery*zoom)-300)*zoomf;
+    //Loop through the x,y range of the image
+    //Y is reversed
+    for(var y=599;y>-1;y--) {
+      for(var x=0;x<600;x++) {
+        var cx = startcx + x*zoomf;
+        var cy = startcy + y*zoomf;
+        //Test whether this point is within the Mandelbrot Set
+        var i = mtest(x,y,cx,cy);
+        //Fill in the pixel data
+        fillpix(i,cmult,x,y); 
+      }
+    }
+    //Write the image
+    if (!plotit) context.putImageData(mandel, 0, 0);
+    //Position white dot at the center of the image
+    centerdot.style.left = xbase + 299;
+    centerdot.style.top = ybase + ytop - 301;
+    //Turn off "Generating" message
+    busy.style.visibility = "hidden";
+    if (black) {
+    //A black image was generated - offer a hint
+      context.font = "20px Arial";
+      context.fillStyle = "white";
+      context.fillText("Try decreasing zoom", 20, 30);
+    }
+  }
+
+  //Test point for Mandelbrot Set
+  function mtest(xloc,yloc,xcon,ycon) {
+    var zx = 0;
+    var zy = 0;
+    //Test whether this point is within the Mandelbrot Set 
+    for (ii=0;ii<iter;ii++) {
+      var xt = zx*zy;
+      zx = zx*zx-zy*zy+xcon;
+      zy = 2*xt+ycon;
+      var testv = zx*zx+zy*zy;
+         if (plotit) {
+            black = false;
+            if ((xloc == 299) && (yloc == 299)) {
+              context.clearRect(xpos, ypos-10, 150, 11);
+              context.font = "10px Arial";
+              context.fillStyle = "black";
+              if (testv > 4) context.fillStyle = "red";
+              if (ii == (iter-1)) context.fillStyle = "red"; 
+              context.fillText(ii+1, xpos, ypos);
+              context.fillText(testv, xpos+26, ypos);
+              plotval = testv;
+              plot();
+              ypos = ypos + 10;
+              if (ypos > textmaxy) {
+                ypos = 12;
+                xpos = xpos + 150;
+                if (xpos > 700) xpos = 5;
+              }
+            }
+          }
+      //If value is increasing, stop iteration, point is outside the set
+      if (testv > 4) break;
+    }
+    return ii;
+  }
+
+  //Fill in a pixel
+  function fillpix(ii,mult,fxpos,fypos) {
+    //The escape value "ii" determines the displayed color
+    var shifter = 0.0;
+    if (shfact > 0) {
+      var nxpos = fxpos - 300;
+      var nypos = fypos - 300;
+      cshift = Math.floor(Math.sqrt(nxpos*nxpos + nypos*nypos));
+      shifter = Math.floor(cshift*shfact);
+    }
+    if (ii > (iter-1)) {
+      //Reached max iterations
+      //Black pixel
+      mandel.data[mix]   = 0;
+      mandel.data[mix+1] = 0;
+      mandel.data[mix+2] = 0;
+      mandel.data[mix+3] = 255;
+      mix = mix + 4;
+      palval[palix] = 1000;
+    }
+    else {
+      //Escaped before reaching max iterations
+      //Colored pixel
+      var ix = ii;
+      ix = ix * mult*1.0;
+      if (ix != 0) ix = ix + shifter;
+      if (ix > 999) ix = ix - 999;
+      black = false;
+      //Get color values from palette 
+      mandel.data[mix]   = reds[ix]*255/100;
+      mandel.data[mix+1] = grns[ix]*255/100;
+      mandel.data[mix+2] = blus[ix]*255/100;
+      mandel.data[mix+3] = 255;
+      mix = mix + 4;
+      palval[palix] = ix;
+    }
+    palix++;
+  }
+
+  function cyccall() {
+  //Activate or deactivate the color cycle option
+    if (cycle) {
+      cycle = false;
+      return;
+    }
+    cycle = true;
+    clrcyc();
+  }
+
+  function clrcyc() {
+  //Cycle through the colors
+  if (!cycle) return;
+    mix = 0;
+    var pixix = 0;
+    //Y is reversed
+    for(var y=599;y>-1;y--) {
+      for (var x=0; x<600; x++) {
+        var valp = palval[pixix];
+        if (valp == 1000) {
+          //Black pixel
+          mandel.data[mix]   = 0;
+          mandel.data[mix+1] = 0;
+          mandel.data[mix+2] = 0;
+          mandel.data[mix+3] = 255;
+          mix = mix + 4;
+        }
+        else {
+          //Colored pixel
+          //Go to the next color in the palette
+          if (valp != 0) valp = valp + 1;      
+          if (valp > 999) valp = 1;
+          palval[pixix] = valp;
+          //Get color values from palette
+          mandel.data[mix]   = reds[valp]*255/100;
+          mandel.data[mix+1] = grns[valp]*255/100;
+          mandel.data[mix+2] = blus[valp]*255/100;
+          mandel.data[mix+3] = 255;
+          mix = mix + 4;
+        }
+        pixix++;
+      }      
+    }
+    //Rewrite the image with its new colors
+    context.putImageData(mandel, 0, 0);
+    //Set to re-enter ourself after a short wait
+    if (cycle) var timer = setTimeout("clrcyc()",25);
+  }
+
+  //Get location of mouse click
+  //Activated by mouse click event
+  function getmouse(ev) {
+    if (ev.clientX > 828) return;
+    //Get color data of the clicked pixel
+    var imgData = context.getImageData(ev.clientX-xbase, ev.clientY-ytop, 1, 1);
+    if (paldisp) {
+    //If palette is displayed, display color data of the pixel
+      context.font = "20px Arial";
+      context.fillStyle = "black";
+      var clrnum = Math.floor((ev.clientY-ytop-4)/58)*100;
+      clrnum = clrnum + Math.floor((ev.clientX-xbase)/6);
+      var rval = Math.floor(imgData.data[0]*100/255);
+      var gval = Math.floor(imgData.data[1]*100/255);
+      var bval = Math.floor(imgData.data[2]*100/255);
+      if (clrnum < 1000) context.clearRect(20, 10, 250, 24);
+      if (clrnum < 1000) context.fillText("#"+clrnum+",R"+rval+"%,G"+gval+"%,B"+bval+"%", 20, 30);
+    }
+    //If pixel is white, it is outside the image area
+    if (!paldisp) {
+      if (imgData.data[0] == 255) {
+        if (imgData.data[1] == 255) {
+          if (imgData.data[2] == 255) return;
+        }
+      }
+    }
+    //Display the red dot at the click location
+    reddot.style.left = ev.clientX-1;
+    reddot.style.top = ev.clientY-1;
+    reddot.style.visibility = "visible";
+    if (paldisp) return;
+    //Set location params scaled to the image
+    mousex = centerx + (ev.clientX - xbase - 300)/zoom;
+    //Y value is reversed
+    mousey = centery + (ybase + ytop - ev.clientY - 300)/zoom;
+    //Display the center coord values
+    xcenter.textContent = mousex/150;
+    ycenter.textContent = mousey/150;
+  }
+
+   //Reset location back to Mandelbrot center
+  function recenter() {
+    centerx = 0;
+    centery = 0;
+    mousex = 0;
+    mousey = 0;
+    xcenter.textContent = "0";
+    ycenter.textContent = "0";
+    reddot.style.visibility = "hidden";
+  }
+
+  //Turn center dot on or off
+  function dottoggle() {
+    var ifdot = document.getElementById("cendot").checked;
+    if (ifdot) {
+      centerdot.style.visibility = "visible";
+    }
+    else {
+      centerdot.style.visibility = "hidden";
+    }
+  }
+
+  //Reset zoom back to 1
+  function rezoom() {
+    document.getElementById("zoominp").value = 1;
+  }    
+
+  function dispclrs() {
+  // Display the color palette
+    var x = 0;
+    var y = ybase - ytop;
+    var z = 1;
+    for (var n =0; n<1000; n++) {
+      context.beginPath();
+      context.fillStyle = 'rgba('+reds[n]/100*255+','+grns[n]/100*255+','+blus[n]/100*255+',1)';
+      context.fillRect(x, ybase-y, 6, 58);
+      x = x + 6;
+      z++;
+      if (z > 100) {
+        z = 1;
+        x = 0;
+        y = y - 58;
+      }
+    }
+  }
+
+  function colors() {
+    //Set up color palette in a variety of colors worked out by trial & error
+    cycle = false;
+    shfact = 0.5;
+    redval = 20;
+    grnval = 1;
+    bluval = 40;
+    redadd = 2;
+    grnadd = 2;
+    bluadd = 2;
+    reddup = 2;
+    grndup = 3;
+    bludup = 4;
+    //do the main setup
+    //Set reds
+    for (var n=0; n<1000; n=n+reddup) {
+      for (var d=n; d<n+reddup; d++) {
+        reds[d] = redval;
+      }
+      if ((redval > 99) || (redval < 1)) {
+        redadd = -redadd;
+      }
+      redval = redval + redadd;
+    }
+    //Set greens
+    for (var n=0; n<1000; n=n+grndup) {
+      for (var d=n; d<n+grndup; d++) {
+        grns[d] = grnval;
+      }
+      if ((grnval > 99) || (grnval < 1)) {
+        grnadd = -grnadd;
+      }
+      grnval = grnval + grnadd;
+    }
+    //Set blues
+    for (var n=0; n<1000; n=n+bludup) {
+      for (var d=n; d<n+bludup; d++) {
+        blus[d] = bluval;
+      }
+      if ((bluval > 99) || (bluval < 1)) {
+        bluadd = -bluadd;
+      }
+      bluval = bluval + bluadd;
+    }
+    for (var n=0; n<1000; n++) {
+      //Don't let the color get very bright, hard to see detail on screen
+      do {
+        if (reds[n] > 5) reds[n]--;
+        if (grns[n] > 5) grns[n]--;
+        if (blus[n] > 5) blus[n]--;
+         }
+      while ((reds[n]+grns[n]+blus[n]) > 160);
+      //Boost the higher values to add vividness
+      reds[n] = reds[n] + reds[n]*.2;
+      if (reds[n] > 99) reds[n] = 99;
+      reds[n] = Math.floor(reds[n]);
+      grns[n] = grns[n] + grns[n]*.2;
+      if (grns[n] > 99) grns[n] = 99;
+      grns[n] = Math.floor(grns[n]);
+      blus[n] = blus[n] + blus[n]*.2;
+      if (blus[n] > 99) blus[n] = 99;
+      blus[n] = Math.floor(blus[n]);
+    }
+    fixclrs();
+  }
+
+  function primaries() {
+    //Set up color palette in the basic RGB combinations
+    cycle = false;
+    shfact = 0.0;
+    for (var n=0; n<100; n++) {
+      var p = n;
+      //blue to magenta
+      reds[p] = n;
+      grns[p] = 0;
+      blus[p] = 100;
+      p = p + 100;
+      //magenta to red
+      reds[p] = 100;
+      grns[p] = 0;
+      blus[p] = 100 - n;
+      p = p + 100;
+      //red to yellow
+      reds[p] = 100;
+      grns[p] = n;
+      blus[p] = 0;
+      p = p + 100;
+      //yellow to green
+      reds[p] = 100 - n;
+      grns[p] = 100;
+      blus[p] = 0;
+      p = p + 100;
+      //green to cyan
+      reds[p] = 0;
+      grns[p] = 100;
+      blus[p] = n;
+      p = p + 100;
+      //cyan to blue
+      reds[p] = 0;
+      grns[p] = 100 - n;
+      blus[p] = 100;
+      p = p + 100;
+      //blue to magenta again
+      reds[p] = n;
+      grns[p] = 0;
+      blus[p] = 100;
+      p = p + 100;
+      //magenta to red again
+      reds[p] = 100;
+      grns[p] = 0;
+      blus[p] = 100 - n;
+      p = p + 100;
+      //red to yellow again
+      reds[p] = 100;
+      grns[p] = n;
+      blus[p] = 0;
+      p = p + 100;
+      //yellow to green again
+      reds[p] = 100 - n;
+      grns[p] = 100;
+      blus[p] = 0;
+    }
+    fixclrs();
+  }
+
+  function pastels() {
+    //Set up color palette in RGB combinations, shading to white between transitions
+    cycle = false;
+    shfact = 0.0;
+    for (var n=0; n<50; n++) {
+      var p = n;
+      var q = p + 50;
+      //0 - blue to magenta
+      reds[p] = n*2;
+      grns[p] = n*2;
+      blus[p] = 100;
+      reds[q] = 100;
+      grns[q] = 100 - n*2;
+      blus[q] = 100;
+      p = p + 100;
+      q = p + 50;
+      //100 - magenta to red
+      reds[p] = 100;
+      grns[p] = n*2;
+      blus[p] = 100;
+      reds[q] = 100;
+      grns[q] = 100 - n*2;
+      blus[q] = 100 - n*2;
+      p = p + 100;
+      q = p + 50;
+      //200 - red to yellow
+      reds[p] = 100;
+      grns[p] = n*2;
+      blus[p] = n*2;
+      reds[q] = 100;
+      grns[q] = 100;
+      blus[q] = 100 - n*2;
+      p = p + 100;
+      q = p + 50;
+      //300 - yellow to green
+      reds[p] = 100;
+      grns[p] = 100;
+      blus[p] = n*2;
+      reds[q] = 100 - n*2;
+      grns[q] = 100;
+      blus[q] = 100 - n*2;
+      p = p + 100;
+      q = p + 50;
+      //400 - green to cyan
+      reds[p] = n*2;
+      grns[p] = 100;
+      blus[p] = n*2;
+      reds[q] = 100 - n*2;
+      grns[q] = 100;
+      blus[q] = 100;
+      p = p + 100;
+      q = p + 50;
+      //500 - cyan to blue
+      reds[p] = n*2;
+      grns[p] = 100;
+      blus[p] = 100;
+      reds[q] = 100 - n*2;
+      grns[q] = 100 - n*2;
+      blus[q] = 100;
+      p = p + 100;
+      q = p + 50;
+      //600 - blue to magenta again
+      reds[p] = n*2;
+      grns[p] = n*2;
+      blus[p] = 100;
+      reds[q] = 100;
+      grns[q] = 100 - n*2;
+      blus[q] = 100;
+      p = p + 100;
+      q = p + 50;
+      //700 - magenta to red again
+      reds[p] = 100;
+      grns[p] = n*2;
+      blus[p] = 100;
+      reds[q] = 100;
+      grns[q] = 100 - n*2;
+      blus[q] = 100 - n*2;
+      p = p + 100;
+      q = p + 50;
+      //800 - red to yellow again
+      reds[p] = 100;
+      grns[p] = n*2;
+      blus[p] = n*2;
+      reds[q] = 100;
+      grns[q] = 100;
+      blus[q] = 100 - n*2;
+      p = p + 100;
+      q = p + 50;
+      //900 - yellow to green again
+      reds[p] = 100;
+      grns[p] = 100;
+      blus[p] = n*2;
+      reds[q] = 100 - n*2;
+      grns[q] = 100;
+      blus[q] = 100 - n*2;
+    }
+    fixclrs();
+  }
+
+  function highc() {
+  //Set up high contrast color palette
+    cycle = false;
+    shfact = 0.0;
+    var rv = 70;
+    var ri = 5;
+    var gv = 40;
+    var gi = 6;
+    var bv = 10;
+    var bi = 6;
+    for (var t=0; t<1000; t++) {
+      reds[t] = rv;
+      rv = rv + ri;
+      if ((rv>100) || (rv<10)) ri = -ri;
+      grns[t] = gv;
+      gv = gv + gi;
+      if ((gv>100) || (gv<10)) gi = -gi;
+      blus[t] = bv;
+      bv = bv + bi;
+      if ((bv>100) || (bv<10)) bi = -bi;
+    }
+    //Smooth out the transition from end back to beginning
+    rv = 20;
+    gv = 63;
+    bv = 43;
+    ri = Math.floor((74-rv)/10);
+    gi = Math.floor((45-gv)/10);
+    bi = Math.floor((16-bv)/10);
+    for (var u=991; u<1000; u++) {
+      rv = rv + ri;
+      gv = gv + gi;
+      bv = bv + bi;
+      reds[u] = rv;
+      grns[u] = gv;
+      blus[u] = bv;
+    }
+    //White for out of limits
+    reds[0] = 100;
+    grns[0] = 100;
+    blus[0] = 100;
+  }
+
+
+  function fixclrs() {
+    //Blend end of palette with beginning so wraparound looks ok
+    var redch = (reds[1]-reds[950])/50.0;
+    var grnch = (grns[1]-grns[950])/50.0;
+    var bluch = (blus[1]-blus[950])/50.0;
+    for (var n=951; n<1000; n++) {
+      reds[n] = reds[n-1] + redch;
+      grns[n] = grns[n-1] + grnch;
+      blus[n] = blus[n-1] + bluch;
+    }
+    for (var n=0; n<1000; n++) {
+      //Don't let a pixel be white, white is reserved for out of bounds
+      if ((reds[n]+grns[n]+blus[n]) >= 300) blus[n] = 98;
+    }
+    //Locations outside Mandelbrot area will be white
+    //i.e. where the Mandelbrot test fails on the first attempt
+    reds[0] = 100;
+    grns[0] = 100;
+    blus[0] = 100;
+  }
+ 
+  function plot() {
+    //Put out a dot in the plot of iteration values
+    plotx = plotx + 5;
+    if (plotx > 1000) {
+      plotx = 5;
+      plotline = plotline + 18;
+    }
+    ploty = plotval*5 + 5;
+    if (ploty > 590) return;
+    context.beginPath();
+    context.rect(plotx, ybase-ploty-plotline, 5, 5);
+    //Black if value is less than escape value
+    if (plotval < 4) context.fillStyle = 'rgba(0%,0%,0%,1)';
+    //Blue if value is on its way to infinity
+    if (plotval >= 4) context.fillStyle = 'rgba(0%,0%,100%,1)';
+    context.fill();
+   }
+
+  function optcolors() {
+    //Set up selected color scheme
+    if (colrcontrol.optclrs.selectedIndex == 0) colors();
+    if (colrcontrol.optclrs.selectedIndex == 1) primaries();
+    if (colrcontrol.optclrs.selectedIndex == 2) pastels();
+    if (colrcontrol.optclrs.selectedIndex == 3) highc();
+  }
+
+  function optdisplay() {
+    //Set control for display type - default is Normal image
+    paldisp = false;
+    plotit = false;
+    if (dispcontrol.optdisp.selectedIndex == 1) paldisp = true;
+    if (dispcontrol.optdisp.selectedIndex == 2) plotit = true;
+  }
+
+    
+  </script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="2" width="210">
+    <tr>
+      <td height="570" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 580; width: 170">
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000; font-weight: bold;">
+      <span style="font-size: 20px">MMandelBob</span><br><br>
+      <form name="zoomcontrol" method="post" enctype="text/plain">
+        Zoom Factor
+          &nbsp;&nbsp;<input type="number" id="zoominp" value="1" size="16" step="any">
+      </form>
+      <form name="zoomreset" action="javaScript:rezoom();" method="post" enctype="text/plain">
+        <input type="submit" value="Reset Zoom">
+      </form><br>
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000">X Center:</span>
+      <form name="xcontrol" method="post" enctype="text/plain">
+          &nbsp;&nbsp;<input type="number" id="xinp"  size="16" step="any">
+      </form>
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000">Y Center:</span>
+      <form name="ycontrol" method="post" enctype="text/plain">
+          &nbsp;&nbsp;<input type="number" id="yinp"  size="16" step="any">
+      </form>
+
+
+      <form name="toggledot" method="post" enctype="text/plain">
+         <input type="checkbox" checked id="cendot" onchange="javaScript:dottoggle();">Center Dot<br>
+      </form>
+      <form name="colrcontrol" method="post" enctype="text/plain">
+      Colors<br>  
+      <select name="optclrs" size="4" onchange="javascript:optcolors()">
+      <option selected value="0">Variety
+      <option value="1">RGB Combinations
+      <option value="2">RGB Pastels
+      <option value="3">High Contrast
+      </select><br>
+      </form>
+      <form name="togglecyc" action="javaScript:cyccall();" method="post" enctype="text/plain">
+         <input type="submit" value="Cycle Colors On/Off"><br><br>
+      </form>
+      <form name="dispcontrol" method="post" enctype="text/plain">
+      Display<br>  
+      <select name="optdisp" size="3" onchange="javascript:optdisplay()">
+      <option selected value="0">Normal
+      <option value="1">Color Palette
+      <option value="2">Iteration Values
+      </select><br><br>
+      </form>
+      <form name="gencontrol" action="javaScript:gencall();" method="post" enctype="text/plain">  
+         <input type="submit" value="Generate Image">
+      </form>
+      <span id="busy" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">  Generating </span>
+      </span>
+  </div>
+  <!-- Dots -->
+  <div id="centerdot" style="position: absolute; left: 0; top: 0; height: 3; width: 3; background: white; visibility: visible"></div>
+  <div id="reddot" style="position: absolute; left: 0; top: 0; height: 3; width: 3; background: red; visibility: hidden"></div>
+
+</body>
+
+</html>

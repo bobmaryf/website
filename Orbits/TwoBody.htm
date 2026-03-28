@@ -1,0 +1,237 @@
+<html>
+<head>
+
+<title>TwoBody</title>
+
+  <canvas id="Universe" width="1010" height="610" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="setup()">
+
+<script>;
+
+//Global variables
+  var xleft = 230;
+  var ybase = 600;
+  var ytop = 8;
+  var canv = document.getElementById('Universe');
+  canv.style.left = xleft;
+  canv.style.top = ytop;
+  var context = canv.getContext('2d');
+  var centerx = canv.width/2;
+  var centery = canv.height/2;
+  var delay = 10;
+  var pie = Math.PI;
+  var twopie = 2.0*Math.PI;
+  var maxx = centerx;
+  var maxy = centery;
+  //Barycenter, or focus, center of mass of the two bodies
+  var barycx = 0.0;
+  //Properties of the orbits
+  //Eccentricity
+  var eccen = 0.0;
+  //Period  of the orbit in seconds
+  var period = 10.0;
+  var timinc = 1000.0/delay
+  //Semimajor axis
+  var semimaj1 = 0.0;
+  //Semiminor axis
+  var semimin1 = 0.0;
+  //Area of the ellipse
+  var area1 = 0.0;
+  var nsteps1 = 0.0;
+  var sectarea1 = 0.0;
+  //Properties of the bodies
+  //Hypothetical mass
+  var mass1 = 50;
+  //Radius for display
+  var rad1 = Math.sqrt(mass1/pie) * pie;
+  //Current distance from barycenter
+  var rho1 = 0.0;
+  //Angle, counterclockwise from right, in radians
+  var theta1 = pie;
+  var sectarea1 = 0.0;
+  var mass2 = 50;
+  var rad2 = Math.sqrt(mass2/pie) * pie;
+  var rho2 = 0.0;
+  var theta2 = 0.0;
+  var startx1 = -200;
+  var x1 = startx1;
+  var y1 = 0;
+  var colr1 = "#8080ff";
+  var startx2 = 200;
+  var x2 = startx2;
+  var y2 = 0;
+  var colr2 = "#c0a000";
+
+//Begin functions
+
+//Set up initial field
+function setup() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") return;
+  //Get operating parameters
+  mass2 = document.getElementById("m2inp").value * 1.0;
+  if (mass2 < 50) mass2 = 50;
+  if (mass2 > 10000) mass2 = 10000;
+  document.getElementById("m2inp").value = mass2;
+  rad2 = Math.sqrt(mass2/pie) * pie;
+  eccen = document.getElementById("eccinp").value * 1.0;
+  if (eccen < 0.0) eccen = 0;
+  if (eccen > 0.7) eccen = 0.7;
+  document.getElementById("eccinp").value = eccen;
+  //Display empty field
+  context.beginPath();
+  context.rect(centerx-maxx, centery-maxy, 2*maxx, 2*maxy);
+  context.fillStyle = 'black';
+  context.fill();
+  //Find barycenter/focus
+  var bdst = getdst(startx1,0.0,startx2,0.0)*mass2/(mass1+mass2);
+  barycx = startx1 + bdst;
+  //This gives a good fit on the screen
+  semimaj1 = maxy - 20.0;
+  semimin1 = semimaj1*Math.sqrt(1.0-(eccen*eccen));
+  area1 = pie*semimaj1*semimin1;
+  nsteps1 = period * timinc;
+  sectarea1 = area1/nsteps1;
+  theta1 = pie;
+  rho1 = (semimaj1*(1.0-(eccen*eccen)))/(1.0+(eccen*Math.cos(theta1)));
+  x1 = rho1*Math.cos(theta1);
+  y1 = 0;
+  theta2 = (theta1 + pie) % twopie;
+  rho2 = rho1*mass1/mass2;
+  x2 = rho2*Math.cos(theta2);
+  y2 = rho2*Math.sin(theta2);
+  //Display bodies
+  context.beginPath();
+  context.arc(centerx+barycx+x1, centery-y1, rad1, 0, 2*pie, false);
+  context.fillStyle = colr1;
+  context.fill();
+  context.beginPath();
+  context.arc(centerx+barycx+x2, centery-y2, rad2, 0, 2*pie, false);
+  context.fillStyle = colr2;
+  context.fill();
+  //display dot at barycenter
+  context.beginPath();
+  context.arc(centerx+barycx, centery, 2, 0, twopie, false);
+  context.fillStyle = "red";
+  context.fill();
+}
+
+//Get the Start/Stop button, toggle the running status
+function urun() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") {
+    ifrunning.style.visibility = "hidden";
+  }
+  else {
+    ifrunning.style.visibility = "visible";
+    runit() ;
+  }
+}
+
+//Run the bodies
+function runit() {
+  var ifrunning = document.getElementById("urunning");
+  //Don't do anything if not running
+  if (ifrunning.style.visibility == "hidden") return;
+  //Get position of body 1
+  var deltay = 2.0*sectarea1/rho1;
+  rho1 = Math.sqrt((rho1*rho1)+(deltay*deltay));
+  var dtheta = Math.asin(deltay/rho1);
+  theta1 = (theta1 + dtheta) % twopie;
+  rho1 = (semimaj1*(1.0-(eccen*eccen)))/(1.0+(eccen*Math.cos(theta1)));
+  x1 = rho1*Math.cos(theta1);
+  y1 = rho1*Math.sin(theta1);
+  //Body 2 is on the opposite side of the barycenter
+  theta2 = (theta1 + pie) % twopie;
+  rho2 = rho1*mass1/mass2;
+  x2 = rho2*Math.cos(theta2);
+  y2 = rho2*Math.sin(theta2);
+  //Clear the field
+  context.beginPath();
+  context.rect(centerx-maxx, centery-maxy, 2*maxx, 2*maxy);
+  context.fillStyle = 'black';
+  context.fill();
+  //Display body 2
+  context.beginPath();
+  context.arc(centerx+barycx+x2, centery-y2, rad2, 0, 2*pie, false);
+  context.fillStyle = colr2;
+  context.fill();
+  //Display body 1
+  context.beginPath();
+  context.arc(centerx+barycx+x1, centery-y1, rad1, 0, 2*pie, false);
+  context.fillStyle = colr1;
+  context.fill();
+  //display dot at barycenter/focus
+  context.beginPath();
+  context.arc(centerx+barycx, centery, 2, 0, twopie, false);
+  context.fillStyle = "red";
+  context.fill();
+  //Set to reenter after a wait    
+  var timer = setTimeout("runit()",delay);
+}
+
+//Calculate direction from one point 1 to point 2
+function getdir(xx1,yy1,xx2,yy2) {
+return Math.atan2((yy2-yy1),(xx2-xx1));
+}
+
+//Calculate distance between two points
+function getdst(xx1,yy1,xx2,yy2) {
+  var xdif = xx1-xx2 ;
+  var ydif = yy1-yy2 ;
+  return Math.sqrt(xdif*xdif + ydif*ydif) ;
+}
+
+</script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="2" width="210">
+    <tr>
+      <td height="284" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 180; width: 170">
+      <span style="font-family: sans-serif; font-size: 16px; color: #000000; font-weight: bold;">
+        <span style="font-size: 20px">TwoBodyOrbits</span><br><br>
+        <span style="font-family: sans-serif; font-size: 16px; color: #8080ff; font-weight: bold;">
+          Mass1 = 50<br>
+        </span>
+        <form name="m2control" method="post" enctype="text/plain">
+        <span style="font-family: sans-serif; font-size: 16px; color: #c0a000; font-weight: bold;">
+          Mass2, 50 to 10000
+        </span>
+          &nbsp;&nbsp;<input type="number" id="m2inp" value="50" size="6" step="1" min="50" max="10000">
+        </form>
+        <form name="ecccontrol" method="post" enctype="text/plain">
+        <span style="font-family: sans-serif; font-size: 16px; color: #000000; font-weight: bold;">
+          Eccentricity, 0 to .7
+        </span>
+          &nbsp;&nbsp;<input type="number" id="eccinp" value="0" size="6" step="1" min="0" max="1">
+        </form>
+        <form name="ureset" action="javaScript:setup();" method="post" enctype="text/plain">
+          <input type="submit" value="Reset">
+        </form>
+        <form name="startstop" action="javaScript:urun();" method="post" enctype="text/plain">  
+          <input type="submit" value="Start/Stop">
+        </form>
+        <span id="urunning" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">
+          Running 
+        </span>
+      </span>
+
+      <span id="msg" style="position: relative; font-family: sans-serif; font-size: 16px; color: #000000; font-weight: 
+        bold;">
+      </span>
+
+  </div>
+
+</body>
+
+</html>

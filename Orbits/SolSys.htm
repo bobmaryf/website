@@ -1,0 +1,313 @@
+<html>
+<head>
+
+<title>SolSys</title>
+
+  <canvas id="Universe" width="610" height="610" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="setup()">
+
+<script>;
+
+//Global variables
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 8;
+  var canv = document.getElementById('Universe');
+  canv.style.left = xbase;
+  canv.style.top = 0;
+  var context = canv.getContext('2d');
+  var centerX = 304;
+  var centerY = 304;
+  var stdelay = 5;
+  var delay = 1;
+  var busy = false;
+  var pie = Math.PI;
+  var twopie = 2.0*Math.PI;
+  //Radius of the universe
+  var urad = 300;
+  //Gravitational constant
+  var grav = 5.0;
+  var maxdelt = 2;
+  //Body parameters
+  //Mass
+  var mass0 = 1000.0;
+  var mass1 = 5.0;
+  var mass2 = 5.0;
+  var mass3 = 5.0;
+  var mass4 = 5.0;
+  var mass5 = 5.0;
+  var mu = mass0*grav;
+  //Radius
+  var rad0 = 40;
+  var rad1 = 2;
+  var rad2 = 5;
+  var rad3 = 5;
+  var rad4 = 3;
+  var rad5 = 30;
+  //X & Y Coordinates
+  var stx0 = 0;
+  var x0 = 0;
+  var sty0 = 0;
+  var y0 = 0;
+  var stx1 = 100;
+  var x1 = 100;
+  var sty1 = 0;
+  var y1 = 0;
+  var stx2 = 120;
+  var x2 = 100;
+  var sty2 = 0;
+  var y2 = 0;
+  var stx3 = 140;
+  var x3 = 100;
+  var sty3 = 0;
+  var y3 = 0;
+  var stx4 = 160;
+  var x4 = 100;
+  var sty4 = 0;
+  var y4 = 0;
+  var stx5 = 180;
+  var x5 = 100;
+  var sty5 = 0;
+  var y5 = 0;
+  //Polar Coords
+  var rho0 = 0.0;
+  var theta0 = 0.0;
+  var dtheta0 = 0.0;
+  var rho1 = 0.0;
+  var theta1 = 0.0;
+  var dtheta1 = 0.0;
+  var rho2 = 0.0;
+  var theta2 = 0.0;
+  var dtheta2 = 0.0;
+  var rho3 = 0.0;
+  var theta3 = 0.0;
+  var dtheta3 = 0.0;
+  var rho4 = 0.0;
+  var theta4 = 0.0;
+  var dtheta4 = 0.0;
+  var rho5 = 0.0;
+  var theta5 = 0.0;
+  var dtheta5 = 0.0;
+  //Gravitational force between bodies
+  var force = 0.0;
+  //Direction, zero is to the right
+  //Direction increases counter-clockwise
+  //Complete circle is 2*Pi
+  var dir0 = 0.0;
+  var dir1 = 0.0;
+  var dir2 = 0.0;
+  var dir3 = 0.0;
+  var dir4 = 0.0;
+  var dir5 = 0.0;
+  //Velocities
+  var vel0 = 0.0;
+  var vel1 = 10.0;
+  var vel2 = 7.97;
+  var vel3 = 7.08;
+  var vel4 = 6.1;
+  var vel5 = 4.32;
+
+//Begin functions
+
+//Set up initial universe
+function setup() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") return;
+  x0 = stx0;
+  y0 = sty0;
+  theta1 = 0.0;
+  x1 = mu/(vel1*vel1);
+  y1 = sty1;
+  theta2 = 0.0;
+  x2 = mu/(vel2*vel2);
+  y2 = sty2;
+  theta3 = 0.0;
+  x3 = mu/(vel3*vel3);
+  y3 = sty3;
+  theta4 = 0.0;
+  x4 = mu/(vel4*vel4);
+  y4 = sty4;
+  theta5 = 0.0;
+  x5 = mu/(vel5*vel5);
+  y5 = sty5;
+  //Display empty universe
+  context.beginPath();
+  context.arc(centerX, centerY, urad, 0, 2*pie, false);
+  context.fillStyle = 'black';
+  context.fill();
+  //Add bodies
+    context.beginPath();
+    //"Sun"
+    context.arc(centerX+x0, centerY-y0, rad0, 0, 2*pie, false);
+    context.fillStyle = 'yellow';
+    context.fill();
+    context.beginPath();
+    //"Mercury"
+    context.arc(centerX+x1, centerY-y1, rad1, 0, 2*pie, false);
+    context.fillStyle = 'white';
+    context.fill();
+    context.beginPath();
+    //"Venus"
+    context.arc(centerX+x2, centerY-y2, rad2, 0, 2*pie, false);
+    context.fillStyle = 'brown';
+    context.fill();
+    context.beginPath();
+    //"Earth
+    context.arc(centerX+x3, centerY-y3, rad3, 0, 2*pie, false);
+    context.fillStyle = 'blue';
+    context.fill();
+    context.beginPath();
+    //"Mars"
+    context.arc(centerX+x4, centerY-y4, rad4, 0, 2*pie, false);
+    context.fillStyle = 'red';
+    context.fill();
+    context.beginPath();
+    //Jupiter"
+    context.arc(centerX+x5, centerY-y5, rad5, 0, 2*pie, false);
+    context.fillStyle = 'brown';
+    context.fill();
+}
+
+//Get the Start/Stop button, toggle the running status
+function urun() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") {
+    ifrunning.style.visibility = "hidden";
+  }
+  else {
+    ifrunning.style.visibility = "visible";
+    busy = false;
+    runit() ;
+  }
+}
+
+//Run the universe
+function runit() {
+//  if (busy) return;
+  busy = true;
+  var ifrunning = document.getElementById("urunning");
+  //Don't do anything if not running
+  if (ifrunning.style.visibility == "hidden") return;
+  //Clear the field
+  context.beginPath();
+  context.arc(centerX, centerY, urad, 0, 2*pie, false);
+  context.fillStyle = 'black';
+  context.fill();
+  delay = stdelay;
+  dtheta1 = (vel1/twopie)*(delay/1000.0);
+  theta1 = theta1 + dtheta1;
+  rho1 = mu/(vel1*vel1);
+  x1 = rho1*Math.cos(theta1);
+  y1 = rho1*Math.sin(theta1);
+  dtheta2 = (vel2/twopie)*(delay/1000.0);
+  theta2 = theta2 + dtheta2;
+  rho2 = mu/(vel2*vel2);
+  x2 = rho2*Math.cos(theta2);
+  y2 = rho2*Math.sin(theta2);
+  dtheta3 = (vel3/twopie)*(delay/1000.0);
+  theta3 = theta3 + dtheta3;
+  rho3 = mu/(vel3*vel3);
+  x3 = rho3*Math.cos(theta3);
+  y3 = rho3*Math.sin(theta3);
+  dtheta4 = (vel4/twopie)*(delay/1000.0);
+  theta4 = theta4 + dtheta4;
+  rho4 = mu/(vel4*vel4);
+  x4 = rho4*Math.cos(theta4);
+  y4 = rho4*Math.sin(theta4);
+  dtheta5 = (vel5/twopie)*(delay/1000.0);
+  theta5 = theta5 + dtheta5;
+  rho5 = mu/(vel5*vel5);
+  x5 = rho5*Math.cos(theta5);
+  y5 = rho5*Math.sin(theta5);
+  //Display each body in its current position
+    context.beginPath();
+    context.arc(centerX+x0, centerY-y0, rad0, 0, 2*pie, false);
+    context.fillStyle = 'yellow';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x1, centerY-y1, rad1, 0, 2*pie, false);
+    context.fillStyle = 'white';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x2, centerY-y2, rad2, 0, 2*pie, false);
+    context.fillStyle = 'brown';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x3, centerY-y3, rad3, 0, 2*pie, false);
+    context.fillStyle = 'blue';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x4, centerY-y4, rad4, 0, 2*pie, false);
+    context.fillStyle = 'red';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x5, centerY-y5, rad5, 0, 2*pie, false);
+    context.fillStyle = 'brown';
+    context.fill();
+
+  //Set to reenter after a wait    
+  var timer = setTimeout("runit()",delay);
+  busy = false;
+}
+
+//Calculate direction from one point 1 to point 2
+function getdir(x1,y1,x2,y2) {
+  if (x2 >= x1) {
+    if (y2 >= y1) { 
+      return pie/2 - Math.atan((y2 - y1)/(x2 - x1)) ;
+    }
+    else {
+      return pie - Math.atan((x2 - x1)/(y1 - y2)) ;
+    }
+  }
+  if (y2 >= y1) { 
+    return 0 - Math.atan((x1 - x2)/(y2 - y1)) ;
+  }
+  else {
+    return pie*1.5 - Math.atan((y1 - y2)/(x1 - x2)) ;
+  }
+}
+
+//Calculate distance between two points
+function getdst(x1,y1,x2,y2) {
+  var xdif = x1-x2 ;
+  var ydif = y1-y2 ;
+  return Math.sqrt(xdif*xdif + ydif*ydif) ;
+}
+
+</script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="2" width="210">
+    <tr>
+      <td height="230" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 180; width: 170">
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000; font-weight: bold;">
+      <span style="font-size: 20px">Sol Sys</span><br><br>
+      <form name="ureset" action="javaScript:setup();" method="post" enctype="text/plain">
+        <input type="submit" value="Reset">
+      </form>
+      <form name="startstop" action="javaScript:urun();" method="post" enctype="text/plain">  
+         <input type="submit" value="Start/Stop">
+      </form>
+      <span id="urunning" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">  Running </span>
+      </span>
+
+      <span id="msg" style="position: relative; font-family: sans-serif; font-size: 16px; color: #000000; font-weight: 
+        bold;">
+      </span>
+
+  </div>
+
+</body>
+
+</html>

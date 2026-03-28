@@ -1,0 +1,487 @@
+<html>
+<head>
+
+<title>ITB</title>
+
+  <canvas id="Universe" width="610" height="610" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="setup()">
+
+<script>;
+
+//Global variables
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 8;
+  var canv = document.getElementById('Universe');
+  canv.style.left = xbase;
+  canv.style.top = 0;
+  var context = canv.getContext('2d');
+  var centerX = 304;
+  var centerY = 304;
+  var delay1 = 20;
+  var delay2 = 2000;
+  var delay = 0;
+  var pie = Math.PI;
+  var twopie = 2.0*Math.PI;
+  //Radius of the universe
+  var urad = 300.0;
+  //Gravitational constant
+  var gravval = 0.8;
+  var grav = 0.0;
+  var gravon = false;
+  var gravd = 0.01;
+  var deltrad = 2.0;
+  //Starting random motion on/off
+  var srmot = true;
+  //Control starting rotation bias
+  var rotate = 0;
+  //Body parameters
+  //Starting mass
+  var stmass = 1.0;
+  //Number of bodies at start
+  var nbods = 200;
+  var totmass = nbods * stmass;
+  var numrem = 0;
+  //Properties of the bodies
+  //Mass
+  var bmass = new Array();
+  //Radius
+  var brad = new Array();
+  //X & Y Coordinates
+  var bx = new Array();
+  var newbx = new Array;
+  var by = new Array();
+  var newby = new Array;
+  //Polar Coords
+  var brho = new Array();
+  var btheta = new Array();
+  //Previous delta x and y
+  //Defines speed and direction of body
+  var prevdx = new Array();
+  var prevdy = new Array();
+  var bshown = new Array();
+  var blist = new Array();
+  //Gravitational forces between bodies
+  var forces = new Array();
+  //Direction, zero is to the right
+  //Direction increases counter-clockwise
+  //Complete circle is 2*Pi
+  var dirs = new Array();
+
+//Begin functions
+
+//Set up initial universe
+function setup() {
+  var ifrunning = document.getElementById("urunning");
+  ifrunning.style.visibility = "hidden";
+  //normal delay for running the bodies
+  delay = delay1;
+  //Display empty universe
+  context.fillStyle = "black";
+  context.fillRect(0, 0, canv.width, canv.height);
+  //Set options
+  srmot = document.getElementById("optsrm").checked;
+  rotate = document.getElementById("optrot").value * 1.0;
+  rotate = Math.floor(rotate);
+  if (rotate < 0) rotate = 0;
+  if (rotate > 4) rotate = 4;
+  if (!srmot) rotate = 0;
+  document.getElementById("optrot").value = rotate;
+  //Add bodies
+  numrem = nbods;
+  grav = 0.0;
+  gravon = false;
+  msg.innerHTML = "Bodies Remaining "+numrem;
+  bmsg0.innerHTML = " ";
+  bmsg1.innerHTML = " ";
+  bmsg2.innerHTML = " ";
+  bmsg3.innerHTML = " ";
+  bmsg4.innerHTML = " ";
+  bmsg5.innerHTML = " ";
+  bmsg6.innerHTML = " ";
+  bmsg7.innerHTML = " ";
+  bmsg8.innerHTML = " ";
+  bmsg9.innerHTML = " ";
+  for(var n=0;n<nbods;n++) {
+    bmass[n] = stmass;
+    brad[n] = deltrad * Math.sqrt(bmass[n]/pie);
+    brho[n] = Math.random()*urad*0.00001;
+    btheta[n] = Math.random() * twopie;
+    bx[n] = brho[n] * Math.cos(btheta[n]);
+    by[n] = brho[n] * Math.sin(btheta[n]);
+    //Give each body some motion to move out from the center
+    //Gravity isn't turned on yet
+    //Maybe it's the big bang
+    var rhodelt = Math.random()*0.8;
+    prevdx[n] = rhodelt * Math.cos(btheta[n]);
+    prevdy[n] = rhodelt * Math.sin(btheta[n]);
+  }
+  for(var n=0;n<nbods;n++) {
+    context.beginPath();
+    context.arc(centerX+bx[n], centerY-by[n], brad[n], 0, twopie, false);
+    context.fillStyle = 'white';
+    context.fill();
+  }
+  //Display center blue dot
+  context.beginPath();
+  context.arc(centerX, centerY, 2, 0, twopie, false);
+  context.fillStyle = 'blue';
+  context.fill();
+}
+
+//Get the Start/Stop button, toggle the running status
+function urun() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") {
+    ifrunning.style.visibility = "hidden";
+  }
+  else {
+    //Set options
+    var savmot = srmot;
+    var savrot = rotate;
+    srmot = document.getElementById("optsrm").checked;
+    rotate = document.getElementById("optrot").value * 1.0;
+    rotate = Math.floor(rotate);
+    if (rotate < 0) rotate = 0;
+    if (rotate > 4) rotate = 4;
+    if (!srmot) rotate = 0;
+    document.getElementById("optrot").value = rotate;
+    ifrunning.style.visibility = "visible";
+    if ((savmot != srmot) || (savrot != rotate)) setup();
+//    runit() ;
+  var timer = setTimeout("runit()",delay);
+
+  }
+}
+
+//Run the universe
+function runit() {
+  var ifrunning = document.getElementById("urunning");
+  //Don't do anything if not running
+  if (ifrunning.style.visibility == "hidden") return;
+  //Set normal delay after pause between phases
+  if (delay == delay2) delay = delay1;
+  //Check the gravity situation of each body
+  for(var k=0;k<nbods;k++) {
+    if (bmass[k] < 1.0) continue;
+    var dist = 0.0;
+    var ix = 0;
+    var deltx = 0.0
+    var delty = 0.0
+    //Calculate attractions and directions from the other bodies
+    for(var n=0;n<nbods;n++) {
+      if (n == k) continue;
+      if (bmass[n] < 1.0) continue;
+      dist = getdst(bx[k],by[k],bx[n],by[n]);
+      forces[ix] = (grav*bmass[k]*bmass[n])/(dist*dist)*1.0;
+      dirs[ix] = sgetdir(bx[k],by[k],bx[n],by[n]);
+      ix++;
+    }
+    //Get change in x and y based on attacting forces
+    deltx = prevdx[k]*bmass[k];
+    delty = prevdy[k]*bmass[k];
+    for (var p=0;p<ix;p++) {
+      deltx = deltx + Math.sin(dirs[p])*forces[p];
+      delty = delty + Math.cos(dirs[p])*forces[p];
+    }
+    //Compute new x value
+    deltx = deltx/bmass[k];
+    prevdx[k] = deltx;
+    newbx[k] = bx[k] + deltx;
+    if (ix == 0) newbx[k] = 0.0;
+    //Compute new y value
+    delty = delty/bmass[k];
+    prevdy[k] = delty;
+    newby[k] = by[k] + delty;
+    if (ix == 0) newby[k] = 0.0;
+    brho[k] = Math.sqrt(bx[k]*bx[k]+by[k]*by[k]);
+    btheta[k] = Math.atan2(by[k],bx[k]);
+  }
+  for(var k=0;k<nbods;k++) {
+    bx[k] = newbx[k];
+    by[k] = newby[k];
+  }
+  for(var k=0;k<nbods;k++) {
+    //Don't check for collisions until gravity is turned on
+    if (!gravon) break;
+    //Check for collisions
+    for(var a=0;a<nbods;a++) {
+      if (bmass[a] < 1.0) continue;
+      for(var b=0;b<nbods;b++) {
+        if (bmass[b] < 1.0) continue;
+        if (b == a) continue;
+        var c = getdst(bx[a],by[a],bx[b],by[b]);
+        //If two bodies overlap,
+        //Add their masses and momentum and 
+        //do away with one of them
+        if (c < (brad[a]+brad[b]+1)) {
+          var newmass = bmass[a] + bmass[b];
+          var newbrad = deltrad * Math.sqrt(newmass/pie);
+          var newprevdx = (prevdx[a]*bmass[a]/newmass) + (prevdx[b]*bmass[b]/newmass);
+          var newprevdy = (prevdy[a]*bmass[a]/newmass) + (prevdy[b]*bmass[b]/newmass);
+          if (bmass[a] > bmass[b]) {
+            prevdx[a] = newprevdx;
+            prevdy[a] = newprevdy;
+            bmass[a] = newmass;
+            brad[a] = newbrad;
+            bmass[b] = 0.0;
+          }
+          else {
+            prevdx[b] = newprevdx;
+            prevdy[b] = newprevdy;
+            bmass[b] = newmass;
+            brad[b] = newbrad;
+            bmass[a] = 0.0;
+          }
+        }
+      }
+    }
+  }
+  //Clear the field
+  context.fillStyle = "black";
+  context.fillRect(0, 0, canv.width, canv.height);
+  var totx = 0.0;
+  var toty = 0.0;
+  //find the center of mass so we can keep the display centered
+  for(var n=0;n<nbods;n++) {
+    if (brho[n] > urad) continue;
+    totx = totx + (bx[n]*bmass[n]);
+    toty = toty + (by[n]*bmass[n]);
+  }
+  //Adjust a little at a time to prevent jerkiness
+  var adjx = 0.05 * totx / totmass;
+  var adjy = 0.05 * toty / totmass;
+  //Display each body in its current position and size
+  for(var n=0;n<nbods;n++) {
+    if (bmass[n] < 1.0) continue;
+    bx[n] = bx[n] - adjx;
+    by[n] = by[n] - adjy;
+    brho[n] = Math.sqrt(bx[n]*bx[n]+by[n]*by[n]);
+    btheta[n] = Math.atan2(by[n],bx[n]);
+    //Check if body has reached the edge
+    if (brho[n] > urad) {
+      gravon = true;
+      //If this is the first body to reach the edge,
+      //Switch to the "operational" phase of the universe
+      if (grav == 0.0) {
+        //Set delay to pause before changing phases
+        delay = delay2;
+        for(var p=0;p<nbods;p++) {
+          //Give each body a bit of motion
+          //With a possible rotation
+          var dtheta = 0.0;
+          var drho = 0.0;
+          if (srmot) { 
+            dtheta = Math.random()*0.006 - 0.003 + rotate*0.001;
+            drho = Math.random()*0.4 - 0.2 - rotate*0.04;
+          }
+          var tx =  (brho[p]+drho) * Math.cos(btheta[p] + dtheta);
+          var ty =  (brho[p]+drho) * Math.sin(btheta[p] + dtheta);
+          prevdx[p] = tx - bx[p];
+          prevdy[p] = ty - by[p];
+        }
+      }
+    }
+    //Display the body
+    context.beginPath();
+    context.arc(centerX+bx[n], centerY-by[n], brad[n], 0, twopie, false);
+    context.fillStyle = 'white';
+    context.fill();
+  }
+  //Display center blue dot
+  context.beginPath();
+  context.arc(centerX, centerY, 2, 0, twopie, false);
+  context.fillStyle = 'blue';
+  context.fill();
+  numrem = 0;
+  for(var a=0;a<nbods;a++) {
+    bshown[a] = false;
+    blist[a] = -1; 
+    if (bmass[a] > 0.0) numrem++;
+  }
+  if (grav > 0.0) {
+    var mtest = 0.0;
+    for(var a=0;a<10;a++) {
+      for(var b=0;b<nbods;b++) {
+        if (bmass[b] < stmass) continue;
+        if (bshown[b]) continue;
+        if (bmass[b] > mtest) {
+          mtest = bmass[b];
+          blist[a] = b;
+        }
+      }
+      if (blist[a] >= 0) bshown[blist[a]] = true;
+      mtest = 0.0;
+    }  
+  }
+  //Increase gravity until it reaches the maximum
+  if (gravon &&  (grav <= gravval)) grav = grav + gravd*gravval;
+  msg.innerHTML = "Bodies Remaining "+numrem;
+  var ix = 0;
+  bmsg0.innerHTML = " ";
+  if (blist[0] >= 0) {
+    ix = blist[0];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg0.style.color = "black";
+    else bmsg0.style.color = "blue";
+    bmsg0.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg1.innerHTML = " ";
+  if (blist[1] >= 0) {
+    ix = blist[1];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg1.style.color = "black";
+    else bmsg1.style.color = "blue";
+    bmsg1.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg2.innerHTML = " ";
+  if (blist[2] >= 0) {
+    ix = blist[2];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg2.style.color = "black";
+    else bmsg2.style.color = "blue";
+    bmsg2.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg3.innerHTML = " ";
+  if (blist[3] >= 0) {
+    ix = blist[3];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg3.style.color = "black";
+    else bmsg3.style.color = "blue";
+    bmsg3.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg4.innerHTML = " ";
+  if (blist[4] >= 0) {
+    ix = blist[4];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg4.style.color = "black";
+    else bmsg4.style.color = "blue";
+    bmsg4.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg5.innerHTML = " ";
+  if (blist[5] >= 0) {
+    ix = blist[5];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg5.style.color = "black";
+    else bmsg5.style.color = "blue";
+    bmsg5.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg6.innerHTML = " ";
+  if (blist[6] >= 0) {
+    ix = blist[6];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg6.style.color = "black";
+    else bmsg6.style.color = "blue";
+    bmsg6.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg7.innerHTML = " ";
+  if (blist[7] >= 0) {
+    ix = blist[7];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg7.style.color = "black";
+    else bmsg7.style.color = "blue";
+    bmsg7.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg8.innerHTML = " ";
+  if (blist[8] >= 0) {
+    ix = blist[8];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg8.style.color = "black";
+    else bmsg8.style.color = "blue";
+    bmsg8.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  bmsg9.innerHTML = " ";
+  if (blist[9] >= 0) {
+    ix = blist[9];
+    if ((Math.abs(bx[ix]) < urad) && (Math.abs(by[ix]) <urad)) bmsg9.style.color = "black";
+    else bmsg9.style.color = "blue";
+    bmsg9.innerHTML = "M"+Math.trunc(bmass[ix])+",R"+Math.trunc(brho[ix]);
+  }
+  //Set to reenter after a wait    
+  var timer = setTimeout("runit()",delay);
+}
+
+//Calculate signed direction from point 1 to point 2
+//Positive is counterclockwise
+function sgetdir(x1,y1,x2,y2) {
+  if (x2 >= x1) {
+    if (y2 >= y1) { 
+      return pie/2 - Math.atan((y2 - y1)/(x2 - x1)) ;
+    }
+    else {
+      return pie - Math.atan((x2 - x1)/(y1 - y2)) ;
+    }
+  }
+  if (y2 >= y1) { 
+    return 0 - Math.atan((x1 - x2)/(y2 - y1)) ;
+  }
+  else {
+    return pie*1.5 - Math.atan((y1 - y2)/(x1 - x2)) ;
+  }
+}
+
+//Calculate distance between two points
+function getdst(x1,y1,x2,y2) {
+  var xdif = x1-x2 ;
+  var ydif = y1-y2 ;
+  return Math.sqrt(xdif*xdif + ydif*ydif) ;
+}
+
+</script>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 220; width: 170">
+      <span style="font-family: sans-serif; font-size: 14px; color: #000000; font-weight: bold;">
+      <span style="font-size: 20px">In&nbsp;The&nbsp;Beginning</span><br><br>
+      <form name="ureset" action="javaScript:setup();" method="post" enctype="text/plain">
+        <input type="submit" value="Reset">
+      </form>
+      <form name="cntsrm" method="post" enctype="text/plain">
+         <input type="checkbox" checked id="optsrm">Starting Motion
+      </form>
+      <form name="cntrot" method="post" enctype="text/plain">
+        Starting Rotation, 0-4
+          <br><input type="number" id="optrot" value="0" size="6" step="1" min="0" max="4">
+      </form>
+      <form name="startstop" action="javaScript:urun();" method="post" enctype="text/plain">  
+         <input type="submit" value="Start/Stop">
+      </form>
+      <span id="urunning" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">  Running </span>
+      </span>
+      <br>
+      <span id="msg" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br><br>
+      <span style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">
+      Blue Dot is Mass Center.<br>
+      Masses and Orbit Radii:<br>
+      </span>
+      <span id="bmsg0" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg1" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg2" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg3" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg4" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg5" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg6" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg7" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg8" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="bmsg9" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+
+  </div>
+
+</body>
+
+</html>

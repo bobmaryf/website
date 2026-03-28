@@ -1,0 +1,309 @@
+<html>
+<head>
+
+<title>Ring</title>
+
+  <canvas id="Universe" width="610" height="610" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="setup()">
+
+<script>;
+
+//Global variables
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 8;
+  var canv = document.getElementById('Universe');
+  canv.style.left = xbase;
+  canv.style.top = 0;
+  var context = canv.getContext('2d');
+  var centerX = 304;
+  var centerY = 304;
+  var delay = 20;
+  var busy = false;
+  var pie = Math.PI;
+  var twopie = 2.0*Math.PI;
+  //Radius of the universe
+  var urad = 300;
+  //Gravitational constant
+  var grav = 0.05;
+  var deltrad = 0.6;
+  //Body parameters
+  //Starting mass
+  var stmass = 1.0;
+  var sunmass = 3000;
+  var sunrad = 12;
+  var dtheta = 0.0065;
+  //Number of bodies at start
+  var nbods = 300;
+  //Number of bodies remaining
+  var numrem = 0;
+  //Properties of the bodies
+  //Mass
+  var bmass = new Array();
+  //Radius
+  var brad = new Array();
+  //X & Y Coordinates
+  var bx = new Array();
+  var newbx = new Array();
+  var by = new Array();
+  var newby = new Array();
+  //Polar Coords
+  var brho = new Array();
+  var btheta = new Array();
+  //Previous delta x and y
+  //Defines speed and direction
+  var prevdx = new Array();
+  var prevdy = new Array();
+  //Gravitational forces between bodies
+  var forces = new Array();
+  //Direction of force, zero is to the right
+  //Direction increases counter-clockwise
+  //Complete circle is 2*Pi
+  var dirs = new Array();
+
+//Begin functions
+
+//Set up initial universe
+function setup() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") return;
+  //Display empty universe
+  context.beginPath();
+  context.arc(centerX, centerY, urad, 0, twopie, false);
+  context.fillStyle = 'black';
+  context.fill();
+  //Add bodies
+  //Get gravitational constant
+  grav = document.getElementById("gcinp").value * 1.0;
+  if (grav < 0.0) grav = 0.0;
+  if (grav > 10.0) grav = 10.0;
+  document.getElementById("gcinp").value = grav;
+  numrem = nbods;
+  msg.innerHTML = "Bodies Remaining "+numrem;
+  msg2.innerHTML = "&nbsp;";
+  //Put the star at the center
+  bmass[0] =  sunmass;
+  brad[0] = sunrad;
+  prevdx[0] = 0.0;
+  prevdy[0] = 0.0;
+  brho[0] = 0.0;
+  btheta[0] = 0.0;
+  bx[0] = 0.0;
+  newbx[0] = 0.0;
+  by[0] = 0.0;
+  newby[0] = 0.0;
+  //Set up the other bodies
+  for(var n=1;n<nbods;n++) {
+    bmass[n] = stmass;
+    brad[n] = deltrad * Math.sqrt(bmass[n]/pie);
+    //Put the body at a random location within the universe
+    brho[n] = Math.random()*urad*0.2 + urad*0.4;
+    btheta[n] = Math.random() * twopie;
+    bx[n] = brho[n] * Math.cos(btheta[n]);
+    by[n] = brho[n] * Math.sin(btheta[n]);
+    //Start it in a circular orbit;
+    //Centrifugal,centripetal force needed
+    var tforce = (grav*sunmass*bmass[n])/(brho[n]*brho[n])*1.0;
+    //Angular velocity
+    dtheta = Math.sqrt(tforce/(bmass[n]*brho[n]));
+    //X,Y velocity
+    var tx =  brho[n] * Math.cos(btheta[n] + dtheta);
+    var ty =  brho[n] * Math.sin(btheta[n] + dtheta);
+    prevdx[n] = tx - bx[n];
+    prevdy[n] = ty - by[n];
+  }
+  for(var n=0;n<nbods;n++) {
+    //Display the bodies
+    context.beginPath();
+    context.arc(centerX+bx[n], centerY-by[n], brad[n], 0, twopie, false);
+    if (n > 0) context.fillStyle = 'white';
+    else context.fillStyle = '#c0c0ff';
+    context.fill();
+  }  
+}
+
+//Get the Start/Stop button, toggle the running status
+function urun() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") {
+    ifrunning.style.visibility = "hidden";
+  }
+  else {
+    ifrunning.style.visibility = "visible";
+    busy = false;
+    runit() ;
+  }
+}
+
+//Run the universe
+function runit() {
+  busy = true;
+  var ifrunning = document.getElementById("urunning");
+  //Don't do anything if not running
+  if (ifrunning.style.visibility == "hidden") return;
+  //Check each body
+  for(var k=1;k<nbods;k++) {
+    if (bmass[k] < 1.0) continue;
+    var dist = 0.0;
+    var ix = 0;
+    var deltx = 0.0
+    var delty = 0.0
+    //Calculate attractions and directions from the other bodies
+    for(var n=0;n<nbods;n++) {
+      if (n == k) continue;
+      if (bmass[n] < 1.0) continue;
+      dist = getdst(bx[k],by[k],bx[n],by[n]);
+      forces[ix] = (grav*bmass[k]*bmass[n])/(dist*dist)*1.0;
+      dirs[ix] = sgetdir(bx[k],by[k],bx[n],by[n]);
+      ix++;
+    }
+    //Get change in x and y based on attacting forces
+    deltx = prevdx[k]*bmass[k];
+    delty = prevdy[k]*bmass[k];
+    for (var p=0;p<ix;p++) {
+      deltx = deltx + Math.sin(dirs[p])*forces[p];
+      delty = delty + Math.cos(dirs[p])*forces[p];
+    }
+    //Compute new x value
+    deltx = deltx/bmass[k];
+    prevdx[k] = deltx;
+    newbx[k] = bx[k] + deltx;
+    //Compute new y value
+    delty = delty/bmass[k];
+    prevdy[k] = delty;
+    newby[k] = by[k] + delty;
+    brho[k] = Math.sqrt(bx[k]*bx[k]+by[k]*by[k]);
+    btheta[k] = Math.atan2(by[k],bx[k]);
+  }
+  for(var k=1;k<nbods;k++) {
+    bx[k] = newbx[k]; 
+    by[k] = newby[k];
+  }   
+  for(var k=1;k<nbods;k++) {
+    //Check for collisions
+    for(var a=1;a<nbods;a++) {
+      if (bmass[a] < 1.0) continue;
+      for(var b=0;b<nbods;b++) {
+        if (bmass[b] < 1.0) continue;
+        if (b == a) continue;
+        var c = getdst(bx[a],by[a],bx[b],by[b]);
+        //If two bodies overlap,
+        //Add their masses and 
+        //do away with one of them
+        if (c < (brad[a]+brad[b]+1)) {
+          if (b == 0) {
+            //Collided with the Sun - destroy this body
+            bmass[a] = 0.0;
+            brad[a] = 0.0;
+            numrem = numrem-1;
+            msg.innerHTML = "Bodies Remaining "+numrem;
+            continue;
+          }
+          //Combine masses
+          var newmass = bmass[a] + bmass[b];
+          //Combine speed and direction
+          prevdx[a] = (prevdx[a]*bmass[a]/newmass) + (prevdx[b]*bmass[b]/newmass);
+          prevdy[a] = (prevdy[a]*bmass[a]/newmass) + (prevdy[b]*bmass[b]/newmass);
+          bmass[a] = newmass;
+          brad[a] = deltrad * Math.sqrt(bmass[a]/pie);
+          bmass[b] = 0.0;
+          brad[b] = 0.0;
+          numrem = numrem-1;
+          msg.innerHTML = "Bodies Remaining "+numrem;
+        }
+      }
+      if (bmass[a] < 1.0) continue;
+    }
+  }
+  //Clear the field
+  context.beginPath();
+  context.arc(centerX, centerY, urad, 0, twopie, false);
+  context.fillStyle = 'black';
+  context.fill();
+  var notvis = 0;
+  //Display each body in its current position and size
+  for(var n=0;n<nbods;n++) {
+    if (bmass[n] < 1.0) continue;
+    if (brho[n] > urad) {
+      notvis = notvis+1;
+      continue;
+    }
+    context.beginPath();
+    context.arc(centerX+bx[n], centerY-by[n], brad[n], 0, twopie, false);
+    if (n > 0) context.fillStyle = 'white';
+    else context.fillStyle = '#c0c0ff';
+    context.fill();
+  }
+  msg2.innerHTML = "Not Visible "+notvis;
+  //Set to reenter after a wait    
+  var timer = setTimeout("runit()",delay);
+  busy = false;
+}
+
+//Calculate signed direction from point 1 to point 2
+//Counterclockwise is positive
+function sgetdir(x1,y1,x2,y2) {
+  if (x2 >= x1) {
+    if (y2 >= y1) { 
+      return pie/2 - Math.atan((y2 - y1)/(x2 - x1)) ;
+    }
+    else {
+      return pie - Math.atan((x2 - x1)/(y1 - y2)) ;
+    }
+  }
+  if (y2 >= y1) { 
+    return 0 - Math.atan((x1 - x2)/(y2 - y1)) ;
+  }
+  else {
+    return pie*1.5 - Math.atan((y1 - y2)/(x1 - x2)) ;
+  }
+}
+
+//Calculate distance between two points
+function getdst(x1,y1,x2,y2) {
+  var xdif = x1-x2 ;
+  var ydif = y1-y2 ;
+  return Math.sqrt(xdif*xdif + ydif*ydif) ;
+}
+
+</script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="2" width="210">
+    <tr>
+      <td height="264" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 180; width: 170">
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000; font-weight: bold;">
+      <span style="font-size: 20px">Ring</span><br><br>
+      <form name="gccontrol" method="post" enctype="text/plain">
+        Gravitational Constant
+          &nbsp;&nbsp;<input type="number" id="gcinp" value="0.05" size="6" step="0.01">
+      </form>
+      <form name="ureset" action="javaScript:setup();" method="post" enctype="text/plain">
+        <input type="submit" value="Reset">
+      </form>
+      <form name="startstop" action="javaScript:urun();" method="post" enctype="text/plain">  
+         <input type="submit" value="Start/Stop">
+      </form>
+      <span id="urunning" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">  Running </span>
+      </span>
+      <br>
+      <span id="msg" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+      <br>
+      <span id="msg2" style="position: relative; font-family: sans-serif; font-size: 14px; color: #000000">&nbsp;
+      </span>
+  </div>
+
+</body>
+
+</html>

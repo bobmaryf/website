@@ -1,0 +1,301 @@
+<html>
+<head>
+
+<title>Orbits</title>
+
+  <canvas id="Universe" width="610" height="610" style="position: absolute"></canvas>
+
+</head>
+
+<body onload="setup()">
+
+<script>;
+
+//Global variables
+  var xbase = 230;
+  var ybase = 600;
+  var ytop = 8;
+  var canv = document.getElementById('Universe');
+  canv.style.left = xbase;
+  canv.style.top = 0;
+  var context = canv.getContext('2d');
+  var centerX = 304;
+  var centerY = 304;
+  var delay = 5;
+  var pie = Math.PI;
+  var twopie = 2.0*Math.PI;
+  //Radius of the universe
+  var urad = 300;
+  var trace = false;
+  //Body parameters
+  //Orbital parameters
+  var eccen1 = 0.8;
+  var semimaj1 = 50.0;
+  var semimin1 = semimaj1*Math.sqrt(1.0-(eccen1*eccen1));
+  var area1 = pie*semimaj1*semimin1;
+  var period1 = 5.0;
+  var nsteps1 = period1 * 1000.0/delay;
+  var sectarea1 = area1/nsteps1;
+  var eccen2 = 0.6;
+  var semimaj2 = 100.0;
+  var semimin2 = semimaj2*Math.sqrt(1.0-(eccen2*eccen2));
+  var area2 = pie*semimaj2*semimin2;
+  var period2 = 10.0;
+  var nsteps2 = period2 * 1000.0/delay;
+  var sectarea2 = area2/nsteps2;
+  var eccen3 = 0.4;
+  var semimaj3 = 150.0;
+  var semimin3 = semimaj3*Math.sqrt(1.0-(eccen3*eccen3));
+  var area3 = pie*semimaj3*semimin3;
+  var period3 = 15.0;
+  var nsteps3 = period3 * 1000.0/delay;
+  var sectarea3 = area3/nsteps3;
+  var eccen4 = 0.2;
+  var semimaj4 = 200.0;
+  var semimin4 = semimaj4*Math.sqrt(1.0-(eccen4*eccen4));
+  var area4 = pie*semimaj4*semimin4;
+  var period4 = 20.0;
+  var nsteps4 = period4 * 1000.0/delay;
+  var sectarea4 = area4/nsteps4;
+  var eccen5 = 0.0;
+  var semimaj5 = 260.0;
+  var semimin5 = semimaj5*Math.sqrt(1.0-(eccen5*eccen5));
+  var area5 = pie*semimaj5*semimin5;
+  var period5 = 25.0;
+  var nsteps5 = period5 * 1000.0/delay;
+  var sectarea5 = area5/nsteps5;
+
+  //Radius
+  var rad0 = 2;
+  var rad1 = 2;
+  var rad2 = 4;
+  var rad3 = 6;
+  var rad4 = 8;
+  var rad5 = 10;
+  //Cartesian Coordinates
+  var x0 = 0;
+  var y0 = 0;
+  var x1 = 0;
+  var y1 = 0;
+  var x2 = 0;
+  var y2 = 0;
+  var x3 = 0;
+  var y3 = 0;
+  var x4 = 0;
+  var y4 = 0;
+  var x5 = 0;
+  var y5 = 0;
+  //Polar Coords
+  var rho0 = 0.0;
+  var theta0 = 0.0;
+  var dtheta0 = 0.0;
+  var rho1 = 0.0
+  var theta1 = 0.0;
+  var dtheta1 = 0.0;
+  var rho2 = 0.0;
+  var theta2 = 0.0;
+  var dtheta2 = 0.0;
+  var rho3 = 0.0;
+  var theta3 = 0.0;
+  var dtheta3 = 0.0;
+  var rho4 = 0.0;
+  var theta4 = 0.0;
+  var dtheta4 = 0.0;
+  var rho5 = 0.0;
+  var theta5 = 0.0;
+  var dtheta5 = 0.0;
+
+//Begin functions
+
+//Set up initial universe
+function setup() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") return;
+  //Set starting values
+  x0 = 0.0;
+  y0 = 0.0;
+  theta1 = 0.0;
+  x1 = semimaj1*(1.0-(eccen1*eccen1))/(1.0+eccen1);
+  rho1 = x1;
+  y1 = 0.0;
+  theta2 = 0.0;
+  x2 = semimaj2*(1.0-(eccen2*eccen2))/(1.0+eccen2);
+  rho2 = x2;
+  y2 = 0.0;
+  theta3 = 0.0;
+  x3 = semimaj3*(1.0-(eccen3*eccen3))/(1.0+eccen3);
+  rho3 = x3;
+  y3 = 0.0;
+  theta4 = 0.0;
+  x4 = semimaj4*(1.0-(eccen4*eccen4))/(1.0+eccen4);
+  rho4 = x4;
+  y4 = 0.0;
+  theta5 = 0.0;
+  x5 = semimaj5*(1.0-(eccen5*eccen5))/(1.0+eccen5);
+  rho5 = x5;
+  y5 = 0.0;
+  //Display empty universe
+  context.beginPath();
+  context.arc(centerX, centerY, urad, 0, 2*pie, false);
+  context.fillStyle = 'black';
+  context.fill();
+  //Display bodies
+    context.beginPath();
+    context.arc(centerX+x0, centerY-y0, rad0, 0, 2*pie, false);
+    context.fillStyle = 'white';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x1, centerY-y1, rad1, 0, 2*pie, false);
+    context.fillStyle = 'yellow';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x2, centerY-y2, rad2, 0, 2*pie, false);
+    context.fillStyle = 'green';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x3, centerY-y3, rad3, 0, 2*pie, false);
+    context.fillStyle = 'blue';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x4, centerY-y4, rad4, 0, 2*pie, false);
+    context.fillStyle = 'red';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x5, centerY-y5, rad5, 0, 2*pie, false);
+    context.fillStyle = 'orange';
+    context.fill();
+}
+
+//Get the Start/Stop button, toggle the running status
+function urun() {
+  var ifrunning = document.getElementById("urunning");
+  if (ifrunning.style.visibility == "visible") {
+    ifrunning.style.visibility = "hidden";
+  }
+  else {
+    ifrunning.style.visibility = "visible";
+    runit() ;
+  }
+}
+
+//Turn trace on or off
+function tracesw() {
+  if (trace) {
+    trace = false;
+  }
+  else {
+    trace = true;
+  }
+}
+
+//Run the universe
+function runit() {
+  var ifrunning = document.getElementById("urunning");
+  //Don't do anything if not running
+  if (ifrunning.style.visibility == "hidden") return;
+  //Clear the field
+  context.beginPath();
+  context.arc(centerX, centerY, urad, 0, 2*pie, false);
+  context.fillStyle = 'black';
+  if (!trace) context.fill();
+  //Calculate new position of each body
+  var deltay = 2.0*sectarea1/rho1;
+  rho1 = Math.sqrt((rho1*rho1)+(deltay*deltay));
+  dtheta1 = Math.asin(deltay/rho1);
+  theta1 = theta1 + dtheta1;
+  rho1 = (semimaj1*(1.0-(eccen1*eccen1)))/(1.0+(eccen1*Math.cos(theta1)));
+  x1 = rho1*Math.cos(theta1);
+  y1 = rho1*Math.sin(theta1);
+  deltay = 2.0*sectarea2/rho2;
+  rho2 = Math.sqrt((rho2*rho2)+(deltay*deltay));
+  dtheta2 = Math.asin(deltay/rho2);
+  theta2 = theta2 + dtheta2;
+  rho2 = (semimaj2*(1.0-(eccen2*eccen2)))/(1.0+(eccen2*Math.cos(theta2)));
+  x2 = rho2*Math.cos(theta2);
+  y2 = rho2*Math.sin(theta2);
+  deltay = 2.0*sectarea3/rho3;
+  rho3 = Math.sqrt((rho3*rho3)+(deltay*deltay));
+  dtheta3 = Math.asin(deltay/rho3);
+  theta3 = theta3 + dtheta3;
+  rho3 = (semimaj3*(1.0-(eccen3*eccen3)))/(1.0+(eccen3*Math.cos(theta3)));
+  x3 = rho3*Math.cos(theta3);
+  y3 = rho3*Math.sin(theta3);
+  deltay = 2.0*sectarea4/rho4;
+  rho4 = Math.sqrt((rho4*rho4)+(deltay*deltay));
+  dtheta4 = Math.asin(deltay/rho4);
+  theta4 = theta4 + dtheta4;
+  rho4 = (semimaj4*(1.0-(eccen4*eccen4)))/(1.0+(eccen4*Math.cos(theta4)));
+  x4 = rho4*Math.cos(theta4);
+  y4 = rho4*Math.sin(theta4);
+  deltay = 2.0*sectarea5/rho5;
+  rho5 = Math.sqrt((rho5*rho5)+(deltay*deltay));
+  dtheta5 = Math.asin(deltay/rho5);
+  theta5 = theta5 + dtheta5;
+  rho5 = (semimaj5*(1.0-(eccen5*eccen5)))/(1.0+(eccen5*Math.cos(theta5)));
+  x5 = rho5*Math.cos(theta5);
+  y5 = rho5*Math.sin(theta5);
+  //Display each body in its new position
+    context.beginPath();
+    context.arc(centerX+x0, centerY-y0, rad0, 0, 2*pie, false);
+    context.fillStyle = 'white';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x1, centerY-y1, rad1, 0, 2*pie, false);
+    context.fillStyle = 'yellow';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x2, centerY-y2, rad2, 0, 2*pie, false);
+    context.fillStyle = 'green';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x3, centerY-y3, rad3, 0, 2*pie, false);
+    context.fillStyle = 'blue';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x4, centerY-y4, rad4, 0, 2*pie, false);
+    context.fillStyle = 'red';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX+x5, centerY-y5, rad5, 0, 2*pie, false);
+    context.fillStyle = 'orange';
+    context.fill();
+  //Set to reenter after a wait    
+  var timer = setTimeout("runit()",delay);
+}
+
+</script>
+
+  <!-- Space for control form, an empty table with a border -->
+  <div style="position: absolute; left: 10; top: 10;">
+  <table border="2" width="210">
+    <tr>
+      <td height="174" width="170"><div style="visibility: hidden; position: relative;">&nbsp;</div></td>
+    </tr>
+  </table>
+  </div>
+
+  <!-- Control form -->
+  <div style="position: absolute; left: 24; top: 20; height: 180; width: 170">
+      <span style="font-family: sans-serif; font-size: 12px; color: #000000; font-weight: bold;">
+      <span style="font-size: 20px">Orbits</span><br><br>
+      <form name="ureset" action="javaScript:setup();" method="post" enctype="text/plain">
+        <input type="submit" value="Reset">
+      </form>
+      <form name="utrace" action="javaScript:tracesw();" method="post" enctype="text/plain">
+        <input type="submit" value="Trace On/Off">
+      </form>
+      <form name="startstop" action="javaScript:urun();" method="post" enctype="text/plain">  
+         <input type="submit" value="Start/Stop">
+      </form>
+      <span id="urunning" style="font-family: sans-serif; font-size: 14px; color: #ff0000; visibility: hidden">  Running </span>
+      </span>
+
+      <span id="msg" style="position: relative; font-family: sans-serif; font-size: 16px; color: #000000; font-weight: 
+        bold;">
+      </span>
+
+  </div>
+
+</body>
+
+</html>
